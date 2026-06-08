@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LUXORA - Premium Fragrances</title>
+    <title>DECANT ATELIER - Premium Fragrances</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body data-theme="dark">
+
     <!-- NAVBAR -->
     <nav class="navbar">
         <div class="nav-container">
@@ -49,7 +50,13 @@
                     <button class="search-btn"><i class="fas fa-search"></i></button>
                 </div>
                 <a href="#" class="nav-icon"><i class="fas fa-user"></i> LOGIN</a>
-                <a href="#" class="nav-icon cart-icon"><i class="fas fa-shopping-cart"></i><span class="cart-count">0</span></a>
+                <a href="#" class="nav-icon cart-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span class="cart-count">0</span>
+                </a>
+                <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+                    <i class="fas fa-moon"></i>
+                </button>
             </div>
 
             <div class="hamburger">
@@ -60,17 +67,74 @@
         </div>
     </nav>
 
-    <!-- HERO SECTION -->
+    <!-- HERO SECTION — Left Text + Right Video Box -->
     <section id="hero" class="hero">
         <div class="hero-content">
-            <div class="hero-image hero-video-shell">
-                <div class="video-frame">
-                    <video class="hero-video" autoplay muted loop playsinline>
-                        <source src="hero-video.mp4" type="video/mp4">
-                        Your browser does not support the video tag.
-                    </video>
+
+            <!-- LEFT: Brand Text -->
+            <div class="hero-text">
+                <p class="hero-tagline">Est. 2015 &nbsp;·&nbsp; Luxury Fragrances</p>
+
+                <h1 class="hero-title">
+                    The Art of
+                    <span>Rare Scents</span>
+                </h1>
+
+                <p class="hero-subtitle">
+                    Discover our curated collection of niche and luxury fragrances — each bottle a story, each note a memory waiting to be made.
+                </p>
+
+                <div class="hero-divider"></div>
+
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">200+</span>
+                        <span class="stat-label">Fragrances</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">50+</span>
+                        <span class="stat-label">Luxury Brands</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">10K+</span>
+                        <span class="stat-label">Happy Clients</span>
+                    </div>
+                </div>
+
+                <div class="hero-buttons">
+                    <button class="btn btn-primary">
+                        <i class="fas fa-shopping-bag" style="margin-right:0.5rem"></i>Shop Now
+                    </button>
+                    <button class="btn btn-secondary">
+                        <i class="fas fa-play-circle" style="margin-right:0.5rem"></i>Explore
+                    </button>
                 </div>
             </div>
+
+            <!-- RIGHT: Video in styled box -->
+            <div class="hero-image">
+                <div class="video-wrapper">
+                    <div class="video-frame">
+                        <video class="hero-video" autoplay muted loop playsinline>
+                            <source src="F2.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+
+                        <!-- Badge inside video -->
+                        <div class="video-badge">
+                            <span class="badge-dot"></span>
+                            <div class="badge-text">
+                                <strong>New Arrivals</strong>
+                                Summer 2026 Collection
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Side floating tag -->
+                    <div class="video-tag">Premium &nbsp; Niche</div>
+                </div>
+            </div>
+
         </div>
     </section>
 
@@ -78,14 +142,11 @@
     <section id="collection" class="collection">
         <h2 class="section-title">Our Signature Collection</h2>
         <p class="section-subtitle">Timeless fragrances for distinguished tastes</p>
-        
+
         <div class="collection-grid">
-            <!-- Card 1 -->
             <div class="collection-card">
                 <div class="card-image">
-                    <div class="perfume-icon">
-                        <i class="fas fa-bottle"></i>
-                    </div>
+                    <div class="perfume-icon"><i class="fas fa-bottle"></i></div>
                 </div>
                 <h3 class="card-title">Midnight Elegance</h3>
                 <p class="card-description">A captivating blend of oud, amber, and sandalwood. Perfect for evening sophistication.</p>
@@ -93,12 +154,9 @@
                 <button class="btn btn-secondary">Learn More</button>
             </div>
 
-            <!-- Card 2 -->
             <div class="collection-card">
                 <div class="card-image">
-                    <div class="perfume-icon">
-                        <i class="fas fa-bottle"></i>
-                    </div>
+                    <div class="perfume-icon"><i class="fas fa-bottle"></i></div>
                 </div>
                 <h3 class="card-title">Golden Hour</h3>
                 <p class="card-description">Warm vanilla, golden honey, and exotic florals. A luxurious daily companion.</p>
@@ -106,12 +164,9 @@
                 <button class="btn btn-secondary">Learn More</button>
             </div>
 
-            <!-- Card 3 -->
             <div class="collection-card">
                 <div class="card-image">
-                    <div class="perfume-icon">
-                        <i class="fas fa-bottle"></i>
-                    </div>
+                    <div class="perfume-icon"><i class="fas fa-bottle"></i></div>
                 </div>
                 <h3 class="card-title">Velvet Crown</h3>
                 <p class="card-description">Rosy petals, musk, and leather create an intoxicating and mysterious allure.</p>
@@ -119,12 +174,9 @@
                 <button class="btn btn-secondary">Learn More</button>
             </div>
 
-            <!-- Card 4 -->
             <div class="collection-card">
                 <div class="card-image">
-                    <div class="perfume-icon">
-                        <i class="fas fa-bottle"></i>
-                    </div>
+                    <div class="perfume-icon"><i class="fas fa-bottle"></i></div>
                 </div>
                 <h3 class="card-title">Crystal Serenity</h3>
                 <p class="card-description">Crisp citrus and aquatic notes with hints of white musk. Refreshingly elegant.</p>
@@ -167,29 +219,20 @@
     <section id="contact" class="contact">
         <h2 class="section-title">Get In Touch</h2>
         <p class="section-subtitle">Connect with us for special orders and inquiries</p>
-        
+
         <div class="contact-container">
             <div class="contact-info">
                 <div class="info-item">
                     <i class="fas fa-envelope"></i>
-                    <div>
-                        <h4>Email</h4>
-                        <p>hello@luxora.com</p>
-                    </div>
+                    <div><h4>Email</h4><p>hello@luxora.com</p></div>
                 </div>
                 <div class="info-item">
                     <i class="fas fa-phone"></i>
-                    <div>
-                        <h4>Phone</h4>
-                        <p>+1 (555) 123-4567</p>
-                    </div>
+                    <div><h4>Phone</h4><p>+1 (555) 123-4567</p></div>
                 </div>
                 <div class="info-item">
                     <i class="fas fa-map-marker-alt"></i>
-                    <div>
-                        <h4>Location</h4>
-                        <p>New York, NY 10001</p>
-                    </div>
+                    <div><h4>Location</h4><p>New York, NY 10001</p></div>
                 </div>
             </div>
 
@@ -202,10 +245,10 @@
         </div>
     </section>
 
-    <!-- FOOTER -->
+    <!-- FOOTER -->c:\Users\rayan\Downloads\F2.mp4
     <footer class="footer">
         <div class="footer-content">
-            <p>&copy; 2026 LUXORA. All rights reserved. Crafted with elegance.</p>
+            <p>&copy; 2026 DECANT ATELIER. All rights reserved. Crafted with elegance.</p>
             <div class="social-links">
                 <a href="#" class="social-link"><i class="fab fa-instagram"></i></a>
                 <a href="#" class="social-link"><i class="fab fa-facebook"></i></a>
