@@ -86,7 +86,13 @@
   color: var(--color-ivory, #FFF8E7);
 }
 
-.nav-link:hover {
+.nav-link:hover,
+.nav-item:hover > .nav-link {
+  color: var(--color-teal, #0F3D3E);
+}
+
+[data-theme="dark"] .nav-link:hover,
+[data-theme="dark"] .nav-item:hover > .nav-link {
   color: var(--color-champagne, #E2C275);
 }
 
@@ -99,6 +105,25 @@
 
 .nav-item:hover .nav-chevron {
   transform: rotate(180deg);
+}
+
+/* Special styling for All Categories link in Categories dropdown */
+.dropdown-menu li.all-categories-link a {
+  color: var(--color-teal, #0F3D3E) !important;
+  font-weight: 700;
+  border-bottom: 1px solid rgba(15, 61, 62, 0.08);
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.85rem;
+}
+
+[data-theme="dark"] .dropdown-menu li.all-categories-link a {
+  color: var(--color-champagne, #E2C275) !important;
+  border-bottom-color: rgba(226, 194, 117, 0.15);
+}
+
+.dropdown-menu li.all-categories-link a:hover {
+  background: transparent !important;
+  padding-left: 1.5rem !important; /* Prevent sliding */
 }
 
 /* Dropdown Menu styling (Frosted Glass) */

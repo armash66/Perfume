@@ -35,10 +35,21 @@ const ShieldCheckIcon = ({ className }) => (
   </svg>
 );
 
-export default function SignatureCollection() {
+export default function SignatureCollection({ activeCategory = 'all', onSelectCategory }) {
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(1); // Default to 5ml Travel Spray
-  const [currentIndex, setCurrentIndex] = useState(6); // Start at index 6 (middle clone)
+  
+  const [localCategory, setLocalCategory] = useState('all');
+  const currentCategory = onSelectCategory ? activeCategory : localCategory;
+  const setCategory = onSelectCategory ? onSelectCategory : setLocalCategory;
+
+  // Filter products based on selected category tag
+  const filteredItems = useMemo(() => {
+    if (currentCategory === 'all') return collectionsData;
+    return collectionsData.filter(item => item.tags && item.tags.includes(currentCategory));
+  }, [currentCategory]);
+
+  const [currentIndex, setCurrentIndex] = useState(filteredItems.length);
   const [disableTransition, setDisableTransition] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -53,8 +64,8 @@ export default function SignatureCollection() {
 
   // 3x extended array to support smooth infinite loop scrolling
   const extendedItems = useMemo(() => {
-    return [...collectionsData, ...collectionsData, ...collectionsData];
-  }, []);
+    return [...filteredItems, ...filteredItems, ...filteredItems];
+  }, [filteredItems]);
 
   // Update slide dimensions dynamically based on responsiveness breakpoints
   const updateDimensions = useCallback(() => {
@@ -65,11 +76,17 @@ export default function SignatureCollection() {
       else if (window.innerWidth < 1024) views = 2;
       else if (window.innerWidth < 1280) views = 3;
 
+      // Ensure views does not exceed total items to prevent layout gaps
+      const L = filteredItems.length;
+      if (L > 0 && views > L) {
+        views = L;
+      }
+
       setSlidesPerView(views);
       const calculatedWidth = (containerWidth - (views - 1) * gap) / views;
       setSlideWidth(calculatedWidth);
     }
-  }, []);
+  }, [filteredItems.length]);
 
   useEffect(() => {
     updateDimensions();
@@ -81,17 +98,26 @@ export default function SignatureCollection() {
     };
   }, [updateDimensions]);
 
+  // Reset index to start of middle clone whenever list changes
+  useEffect(() => {
+    setCurrentIndex(filteredItems.length);
+    setIsTransitioning(false);
+    setDisableTransition(true);
+  }, [filteredItems.length]);
+
   // Handle loop resets after transition animation completes
   const handleAnimationComplete = () => {
     setIsTransitioning(false);
     
     // Jump instantly (no animation) to middle range once out of bounds
-    if (currentIndex >= 12) {
+    const L = filteredItems.length;
+    if (L === 0) return;
+    if (currentIndex >= 2 * L) {
       setDisableTransition(true);
-      setCurrentIndex(currentIndex - 6);
-    } else if (currentIndex < 6) {
+      setCurrentIndex(currentIndex - L);
+    } else if (currentIndex < L) {
       setDisableTransition(true);
-      setCurrentIndex(currentIndex + 6);
+      setCurrentIndex(currentIndex + L);
     }
   };
 
@@ -105,9 +131,9 @@ export default function SignatureCollection() {
     }
   }, [disableTransition]);
 
-  // Autoplay functionality (pauses when drawer is open or user hovers)
+  // Autoplay functionality (pauses when drawer is open, list is short, or user hovers)
   useEffect(() => {
-    if (isHovered || selectedItem) return;
+    if (isHovered || selectedItem || filteredItems.length <= 1) return;
 
     const timer = setInterval(() => {
       if (!isTransitioning && !disableTransition) {
@@ -118,7 +144,7 @@ export default function SignatureCollection() {
     }, 4500);
 
     return () => clearInterval(timer);
-  }, [isHovered, selectedItem, isTransitioning, disableTransition]);
+  }, [isHovered, selectedItem, isTransitioning, disableTransition, filteredItems.length]);
 
   // Slide navigation
   const handlePrev = useCallback(() => {
@@ -137,9 +163,11 @@ export default function SignatureCollection() {
 
   const goToSlide = (dotIndex) => {
     if (isTransitioning) return;
+    const L = filteredItems.length;
+    if (L === 0) return;
     setDisableTransition(false);
     setIsTransitioning(true);
-    setCurrentIndex(dotIndex + 6);
+    setCurrentIndex(dotIndex + L);
   };
 
   // Touch handlers for mobile swipe gesture support
@@ -174,10 +202,12 @@ export default function SignatureCollection() {
     document.body.style.overflow = '';
   };
 
-  // Math to map the current active dot index (0-5)
+  // Math to map the current active dot index
   const activeDot = useMemo(() => {
-    return ((currentIndex - 6) % 6 + 6) % 6;
-  }, [currentIndex]);
+    const L = filteredItems.length;
+    if (L === 0) return 0;
+    return ((currentIndex - L) % L + L) % L;
+  }, [currentIndex, filteredItems.length]);
 
   return (
     <section 
@@ -229,6 +259,39 @@ export default function SignatureCollection() {
               <ChevronRightIcon className="w-5 h-5 group-hover:translate-x-0.5 transition-transform duration-300" />
             </button>
           </div>
+        </div>
+
+        {/* Category Filter Tabs (Horizontal scroll bar matching luxury styling) */}
+        <div className="flex items-center gap-2.5 overflow-x-auto pb-5 mb-10 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+          {[
+            { id: 'all', label: 'All Categories' },
+            { id: 'summer', label: 'Summer Perfumes' },
+            { id: 'winter', label: 'Winter Perfumes' },
+            { id: 'office', label: 'Office Perfumes' },
+            { id: 'gym', label: 'Gym Perfumes' },
+            { id: 'datenight', label: 'Date Night Perfumes' },
+            { id: 'party', label: 'Party Perfumes' },
+            { id: 'her', label: 'For Her' },
+            { id: 'him', label: 'For Him' },
+          ].map((tab) => {
+            const isActive = currentCategory === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setCategory(tab.id)}
+                className={`
+                  px-5 py-2.5 rounded-full text-[0.72rem] font-bold tracking-widest uppercase
+                  transition-all duration-300 ease-out whitespace-nowrap cursor-pointer border
+                  ${isActive
+                    ? 'bg-[#0F3D3E] border-[#0F3D3E] text-[#FFF8E7] shadow-md shadow-[#0F3D3E]/15 hover:scale-102'
+                    : 'bg-white/60 border-[#E2C275]/15 text-[#0F3D3E] hover:bg-[#E2C275]/10 hover:border-[#E2C275]/35'
+                  }
+                `}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Carousel Track Container */}
@@ -329,7 +392,7 @@ export default function SignatureCollection() {
 
         {/* Carousel indicator dots */}
         <div className="mt-10 flex justify-center items-center gap-2.5">
-          {collectionsData.map((_, idx) => {
+          {filteredItems.map((_, idx) => {
             const isActive = activeDot === idx;
             return (
               <button

@@ -13,6 +13,7 @@ export const collectionsData = [
     category: 'Niche Oud',
     image: midnightEleganceImg,
     notes: ['Cambodian Oud', 'Black Amber', 'Mysore Sandalwood'],
+    tags: ['winter', 'datenight', 'party', 'him', 'her'],
     pyramid: {
       top: 'Cardamom, Cinnamon Bark, Saffron',
       heart: 'Cambodian Oud, Midnight Rose, Tuscan Leather',
@@ -34,6 +35,7 @@ export const collectionsData = [
     category: 'Gourmand Floral',
     image: goldenHourImg,
     notes: ['Madagascar Vanilla', 'Wild Honey', 'Ylang-Ylang'],
+    tags: ['summer', 'office', 'her'],
     pyramid: {
       top: 'Calabrian Bergamot, Sweet Neroli, Wild Honey',
       heart: 'Madagascar Vanilla, Jasmine Grandiflorum, Ylang-Ylang',
@@ -55,6 +57,7 @@ export const collectionsData = [
     category: 'Luxury Leather',
     image: velvetCrownImg,
     notes: ['Damask Rose', 'Tuscan Leather', 'Warm Musk'],
+    tags: ['winter', 'datenight', 'party', 'her'],
     pyramid: {
       top: 'Saffron, Black Pepper, Red Currant',
       heart: 'Damask Rose, Red Carnation, Violet Leaf, Tuscan Leather',
@@ -76,6 +79,7 @@ export const collectionsData = [
     category: 'Fresh Marine',
     image: crystalSerenityImg,
     notes: ['Calabrian Bergamot', 'Sea Salt Accord', 'White Musk'],
+    tags: ['summer', 'office', 'gym', 'him', 'her'],
     pyramid: {
       top: 'Calabrian Bergamot, Lemon Zest, Grapefruit',
       heart: 'Sea Salt Accord, Water Lily, Jasmine Tea, Mint',
@@ -97,6 +101,7 @@ export const collectionsData = [
     category: 'Majestic Oud',
     image: midnightEleganceImg,
     notes: ['Dark Oudwood', 'Tobacco Leaf', 'Spiced Labdanum'],
+    tags: ['winter', 'party', 'him'],
     pyramid: {
       top: 'Pink Pepper, Bergamot, Saffron',
       heart: 'Dark Oudwood, Turkish Rose, Tobacco Leaf, Incense',
@@ -118,6 +123,7 @@ export const collectionsData = [
     category: 'Romantic Floral',
     image: velvetCrownImg,
     notes: ['Turkish Rose', 'Peach Nectar', 'Cashmere Woods'],
+    tags: ['summer', 'office', 'datenight', 'her'],
     pyramid: {
       top: 'White Peach, Green Mandarin, Bergamot',
       heart: 'Turkish Rose, Jasmine Sambac, Pink Peony',
@@ -131,3 +137,4 @@ export const collectionsData = [
     ]
   }
 ];
+

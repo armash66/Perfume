@@ -16,6 +16,7 @@ function App() {
   };
 
   const [activePage, setActivePage] = useState(getPageFromHash);
+  const [activeCategory, setActiveCategory] = useState('all');
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -27,13 +28,21 @@ function App() {
 
   return (
     <div className="flex flex-col gap-0 min-h-screen">
-      <Navbar onNavigate={setActivePage} activePage={activePage} />
+      <Navbar 
+        onNavigate={setActivePage} 
+        activePage={activePage} 
+        onSelectCategory={setActiveCategory} 
+        activeCategory={activeCategory} 
+      />
       
       {activePage === 'home' ? (
         <>
           <Hero />
           <div id="collection">
-            <SignatureCollection />
+            <SignatureCollection 
+              activeCategory={activeCategory} 
+              onSelectCategory={setActiveCategory} 
+            />
           </div>
           <Gifting />
           <Pricing />

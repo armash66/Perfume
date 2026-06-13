@@ -9,7 +9,7 @@ const ShoppingBagIcon = ({ className }) => (
   </svg>
 );
 
-export default function Navbar({ onNavigate, activePage }) {
+export default function Navbar({ onNavigate, activePage, onSelectCategory, activeCategory }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isThemeDark, setIsThemeDark] = useState(true);
 
@@ -40,6 +40,27 @@ export default function Navbar({ onNavigate, activePage }) {
     }
   };
 
+  const handleCategoryClick = (e, filterKey) => {
+    e.preventDefault();
+    setIsMobileMenuOpen(false);
+    
+    if (onSelectCategory) {
+      onSelectCategory(filterKey);
+    }
+    
+    if (onNavigate) {
+      onNavigate('home');
+    }
+    window.location.hash = 'collection';
+
+    setTimeout(() => {
+      const element = document.getElementById('collection');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+  };
+
   return (
     <nav className="navbar">
       <div className="nav-container">
@@ -63,14 +84,21 @@ export default function Navbar({ onNavigate, activePage }) {
           </li>
 
           <li className="nav-item dropdown">
-            <a href="#collection" onClick={(e) => handleLinkClick(e, 'collection')} className="nav-link">
-              CATEGORIES <i className="fas fa-chevron-down"></i>
+            <a href="#collection" className="nav-link">
+              CATEGORIES <i className="fas fa-chevron-down nav-chevron"></i>
             </a>
             <ul className="dropdown-menu">
-              <li><a href="#collection" onClick={(e) => handleLinkClick(e, 'collection')}>Eau de Parfum</a></li>
-              <li><a href="#collection" onClick={(e) => handleLinkClick(e, 'collection')}>Eau de Toilette</a></li>
-              <li><a href="#collection" onClick={(e) => handleLinkClick(e, 'collection')}>Luxury Fragrances</a></li>
-              <li><a href="#collection" onClick={(e) => handleLinkClick(e, 'collection')}>Niche Collections</a></li>
+              <li className="all-categories-link">
+                <a href="#collection" onClick={(e) => handleCategoryClick(e, 'all')}>All Categories</a>
+              </li>
+              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'summer')}>Summer Perfumes</a></li>
+              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'winter')}>Winter Perfumes</a></li>
+              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'office')}>Office Perfumes</a></li>
+              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'gym')}>Gym Perfumes</a></li>
+              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'datenight')}>Date Night Perfumes</a></li>
+              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'party')}>Party Perfumes</a></li>
+              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'her')}>For Her</a></li>
+              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'him')}>For Him</a></li>
             </ul>
           </li>
 
