@@ -6,7 +6,6 @@
 /* ─── Tokens ─── */
 :root {
   --hero-cream:      #F7F3ED;
-  --hero-dark:       #1B1A17;
   --hero-text:       #1B1A17;
   --hero-muted:      #6B6560;
   --hero-gold:       #B89563;
@@ -15,13 +14,6 @@
   --hero-font-serif: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
   --hero-font-sans:  'Inter', 'Helvetica Neue', sans-serif;
   --hero-pad-x:      clamp(1.5rem, 4vw, 3.5rem);
-}
-
-[data-theme="dark"] {
-  --hero-cream:      #1B1A17;
-  --hero-text:       #EFE9DF;
-  --hero-muted:      rgba(239,233,223,0.5);
-  --hero-border:     rgba(255,255,255,0.06);
 }
 
 /* ─── Section ─── */
@@ -92,15 +84,7 @@
   pointer-events: none;
 }
 
-[data-theme="dark"] .hero-image-vignette {
-  background: linear-gradient(
-    to right,
-    #1B1A17 0%,
-    rgba(27, 26, 23, 0.85) 8%,
-    rgba(27, 26, 23, 0.4) 22%,
-    transparent 45%
-  );
-}
+
 
 /* Centered layout container that matches Navbar's container exactly */
 .hero-container {
@@ -348,14 +332,7 @@
     );
   }
 
-  [data-theme="dark"] .hero-image-vignette {
-    background: linear-gradient(
-      to top,
-      #1B1A17 0%,
-      rgba(27, 26, 23, 0.6) 25%,
-      transparent 60%
-    );
-  }
+
 
   .hero-container {
     height: auto;

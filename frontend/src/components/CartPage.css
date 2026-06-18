@@ -142,13 +142,13 @@
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 0px;
   overflow: hidden;
-  height: 34px;
+  height: 44px;
 }
 
 .cart-qty-btn {
   background: none;
   border: none;
-  width: 32px;
+  width: 40px;
   height: 100%;
   display: flex;
   align-items: center;
@@ -172,7 +172,7 @@
   color: #1C1B18;
   border-left: 1px solid rgba(0, 0, 0, 0.06);
   border-right: 1px solid rgba(0, 0, 0, 0.06);
-  line-height: 32px;
+  line-height: 42px;
   background-color: #FEFCF9;
 }
 
@@ -182,7 +182,11 @@
   color: rgba(28, 27, 24, 0.25);
   font-size: 0.88rem;
   cursor: pointer;
-  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   border-radius: 0px;
   transition: color 0.2s ease, background-color 0.2s ease;
 }

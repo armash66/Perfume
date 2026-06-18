@@ -3,7 +3,7 @@
   min-height: calc(100vh - 120px);
   position: relative;
   overflow: hidden;
-  padding: 6rem 2rem;
+  padding: 6rem 0;
 }
 
 /* Background grid pattern */
@@ -19,8 +19,9 @@
 }
 
 .categories-container {
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
+  padding: 0 clamp(1.5rem, 4vw, 3.5rem);
   position: relative;
   z-index: 10;
 }

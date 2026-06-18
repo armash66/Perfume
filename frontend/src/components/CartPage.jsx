@@ -69,7 +69,7 @@ export default function CartPage({ onBackToShop }) {
 
   return (
     <div className="cart-page-wrapper bg-[#F7F3ED] min-h-screen py-16 font-body select-none">
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10">
+      <div className="max-w-[1440px] mx-auto px-[clamp(1.5rem,4vw,3.5rem)]">
         
         {/* Breadcrumb */}
         <div className="text-[0.6rem] font-bold tracking-[3px] text-[#B08A50] uppercase mb-8">

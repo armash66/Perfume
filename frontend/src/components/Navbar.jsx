@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collectionsData } from './SignatureCollection/CollectionData';
@@ -22,9 +22,37 @@ const collectionsMenuItems = [
   { id: 'him', label: 'For Him', type: 'collection', filter: 'him' }
 ];
 
+const shopMenuItems = [
+  { id: 'all', label: 'Shop All', filter: 'all' },
+  { id: 'decants', label: 'Decants', filter: 'decants' },
+  { id: 'fullbottles', label: 'Full Bottles', filter: 'fullbottles' },
+  { id: 'divider-1', isDivider: true },
+  { id: 'brands', label: 'Brands', filter: 'brands' },
+  { id: 'families', label: 'Fragrance Families', filter: 'families' },
+  { id: 'newarrivals', label: 'New Arrivals', filter: 'newarrivals' }
+];
+
+const collectionDescriptions = {
+  all: { title: "Curated Journeys", text: "Explore our entire catalogue of niche decants and premium designer fragrances." },
+  summer: { title: "Summer Fields", text: "Bright, fresh, and aquatic scents crafted for warm sunny days and outdoor freshness." },
+  winter: { title: "Winter Solstice", text: "Warm, spicy, and boozy fragrances perfect for cozy cold nights and seasonal gatherings." },
+  office: { title: "Office Confidence", text: "Clean, professional, and sophisticated scents that project quiet confidence." },
+  datenight: { title: "Midnight Romance", text: "Seductive, mysterious, and magnetic perfumes designed to make a memorable impression." },
+  her: { title: "For Her", text: "Comforting, sweet, and floral creations tailored for modern elegance." },
+  him: { title: "For Him", text: "Bold, woody, and aromatic statements designed for the refined gentleman." }
+};
+
+const shopDescriptions = {
+  all: { title: "Curated Catalogue", text: "Browse our entire curated inventory of fragrances, decants, and discovery sets." },
+  decants: { title: "Decants & Atomizers", text: "Try before you buy. Elegant travel-sized atomizers of elite luxury scents." },
+  fullbottles: { title: "Retail Editions", text: "Invest in a signature scent. Complete factory-sealed retail presentations." },
+  brands: { title: "Luxury Houses", text: "Discover fragrances by house, from Parisian ateliers to modern niche creators." },
+  families: { title: "Aroma Families", text: "Sort by scent profile: from fresh citruses to deep warm ouds." },
+  newarrivals: { title: "New Releases", text: "Experience the latest releases added fresh to our fragrance collection." }
+};
+
 export default function Navbar({ onNavigate, activePage, onSelectCategory, activeCategory }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isThemeDark, setIsThemeDark] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileShopOpen, setIsMobileShopOpen] = useState(false);
@@ -32,10 +60,87 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
   const [isScrolled, setIsScrolled] = useState(false);
   const [cartCount, setCartCount] = useState(0);
 
+  // Luxury Shop Dropdown States & Handlers
+  const [isShopHovered, setIsShopHovered] = useState(false);
+  const [hoveredShopIndex, setHoveredShopIndex] = useState(null);
+  const [focusedShopIndex, setFocusedShopIndex] = useState(-1);
+
   // Luxury Collections Dropdown States & Handlers
   const [isCollectionsHovered, setIsCollectionsHovered] = useState(false);
   const [hoveredCollectionIndex, setHoveredCollectionIndex] = useState(null);
   const [focusedCollectionIndex, setFocusedCollectionIndex] = useState(-1);
+
+  // Global Search Overlay States, Refs, and Effects
+  const searchInputRef = useRef(null);
+  const searchContainerRef = useRef(null);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (isSearchOpen) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    if (isSearchOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    setIsSearchOpen(false);
+    setSearchQuery('');
+  }, [activePage]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (isSearchOpen && e.key === 'Escape') {
+        setIsSearchOpen(false);
+        setSearchQuery('');
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isSearchOpen]);
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      const focusableEls = searchContainerRef.current?.querySelectorAll(
+        'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex="0"]'
+      );
+      if (!focusableEls || focusableEls.length === 0) return;
+      
+      const firstEl = focusableEls[0];
+      const lastEl = focusableEls[focusableEls.length - 1];
+      
+      if (e.shiftKey) {
+        if (document.activeElement === firstEl) {
+          lastEl.focus();
+          e.preventDefault();
+        }
+      } else {
+        if (document.activeElement === lastEl) {
+          firstEl.focus();
+          e.preventDefault();
+        }
+      }
+    }
+  };
 
   const handlePointerMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -79,16 +184,62 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
     }
   };
 
+  const handleShopKeyDown = (e) => {
+    if (!isShopHovered) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setIsShopHovered(true);
+        setFocusedShopIndex(0);
+      }
+      return;
+    }
+
+    const nextIndex = (current, direction) => {
+      let next = current;
+      const len = shopMenuItems.length;
+      do {
+        next = (next + direction + len) % len;
+      } while (shopMenuItems[next].isDivider && next !== current);
+      return next;
+    };
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setFocusedShopIndex((prev) => nextIndex(prev, 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setFocusedShopIndex((prev) => nextIndex(prev, -1));
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsShopHovered(false);
+        setFocusedShopIndex(-1);
+        document.getElementById('nav-shop-trigger')?.focus();
+        break;
+      case 'Tab':
+        setIsShopHovered(false);
+        setFocusedShopIndex(-1);
+        break;
+      default:
+        break;
+    }
+  };
+
+  useEffect(() => {
+    if (focusedShopIndex >= 0 && isShopHovered) {
+      const el = document.querySelector(`.lux-shop-item[data-index="${focusedShopIndex}"]`);
+      if (el) el.focus();
+    }
+  }, [focusedShopIndex, isShopHovered]);
+
   useEffect(() => {
     if (focusedCollectionIndex >= 0 && isCollectionsHovered) {
       const el = document.querySelector(`.lux-dropdown-item[data-index="${focusedCollectionIndex}"]`);
       if (el) el.focus();
     }
   }, [focusedCollectionIndex, isCollectionsHovered]);
-
-  useEffect(() => {
-    document.body.setAttribute('data-theme', isThemeDark ? 'dark' : 'light');
-  }, [isThemeDark]);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 30);
@@ -164,18 +315,30 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
     }, 100);
   };
 
-  const filteredProducts = collectionsData.filter(product => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
+  const filteredProducts = useMemo(() => {
+    if (!debouncedQuery) return collectionsData;
+    const q = debouncedQuery.toLowerCase();
+    return collectionsData.filter(product =>
       product.name.toLowerCase().includes(q) ||
       product.category.toLowerCase().includes(q) ||
       product.notes.some(n => n.toLowerCase().includes(q))
     );
-  });
+  }, [debouncedQuery]);
+
+  const activeShopInfo = useMemo(() => {
+    return hoveredShopIndex !== null && hoveredShopIndex >= 0 && !shopMenuItems[hoveredShopIndex].isDivider
+      ? shopDescriptions[shopMenuItems[hoveredShopIndex].id]
+      : shopDescriptions['all'];
+  }, [hoveredShopIndex]);
+
+  const activeCollectionInfo = useMemo(() => {
+    return hoveredCollectionIndex !== null && hoveredCollectionIndex >= 0
+      ? collectionDescriptions[collectionsMenuItems[hoveredCollectionIndex].id]
+      : collectionDescriptions['all'];
+  }, [hoveredCollectionIndex]);
 
   return (
-    <header className={`navbar-wrapper ${activePage === 'home' ? 'on-home' : ''} ${isScrolled ? 'scrolled' : ''}`}>
+    <header className={`navbar-wrapper ${activePage === 'home' ? 'on-home' : ''} ${isScrolled ? 'scrolled' : ''} ${isSearchOpen ? 'search-active' : ''}`}>
       <nav className="navbar" role="navigation" aria-label="Main navigation">
         <div className="nav-container">
 
@@ -191,19 +354,78 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
             </button>
 
             <ul className="nav-menu">
-              <li className="nav-item dropdown">
-                <a href="#collection" className="nav-link" onClick={(e) => handleLinkClick(e, 'shop')}>
+              <li 
+                className="nav-item dropdown"
+                onMouseEnter={() => setIsShopHovered(true)}
+                onMouseLeave={() => { setIsShopHovered(false); setFocusedShopIndex(-1); }}
+                onKeyDown={handleShopKeyDown}
+              >
+                <a 
+                  id="nav-shop-trigger"
+                  href="#collection" 
+                  className="nav-link" 
+                  onClick={(e) => handleLinkClick(e, 'shop')}
+                  aria-haspopup="true"
+                  aria-expanded={isShopHovered}
+                >
                   Shop <i className="fas fa-chevron-down nav-chevron" />
                 </a>
-                <ul className="dropdown-menu">
-                  <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'all')}>Shop All</a></li>
-                  <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'decants')}>Decants</a></li>
-                  <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'fullbottles')}>Full Bottles</a></li>
-                  <li className="dropdown-divider" />
-                  <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'brands')}>Brands</a></li>
-                  <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'families')}>Fragrance Families</a></li>
-                  <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'newarrivals')}>New Arrivals</a></li>
-                </ul>
+                
+                <AnimatePresence>
+                  {isShopHovered && (
+                    <motion.div
+                      className="lux-dropdown"
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                      onPointerMove={handlePointerMove}
+                      role="menu"
+                      aria-label="Shop Submenu"
+                    >
+                      <div className="lux-dropdown-inner">
+                        <div className="lux-gold-line" />
+                        <div className="lux-dropdown-list">
+                          <span className="lux-dropdown-title">Shop</span>
+                          <div className="lux-dropdown-items">
+                            {shopMenuItems.map((item, idx) => {
+                              if (item.isDivider) {
+                                return <div key={item.id} className="lux-dropdown-divider" />;
+                              }
+                              const isHovered = hoveredShopIndex === idx;
+                              return (
+                                <a
+                                  key={item.id}
+                                  href="#collection"
+                                  data-index={idx}
+                                  className={`lux-dropdown-item lux-shop-item ${isHovered ? 'hovered' : ''}`}
+                                  onClick={(e) => {
+                                    handleCategoryClick(e, item.filter);
+                                    setIsShopHovered(false);
+                                  }}
+                                  onMouseEnter={() => {
+                                    setHoveredShopIndex(idx);
+                                    setFocusedShopIndex(idx);
+                                  }}
+                                  onMouseLeave={() => setHoveredShopIndex(null)}
+                                  role="menuitem"
+                                >
+                                  <span className="item-label">{item.label}</span>
+                                  <span className="item-arrow">→</span>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="lux-dropdown-preview">
+                          <span className="preview-subtitle">Discover</span>
+                          <h5 className="preview-title">{activeShopInfo.title}</h5>
+                          <p className="preview-text">{activeShopInfo.text}</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </li>
 
               <li 
@@ -227,10 +449,10 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
                   {isCollectionsHovered && (
                     <motion.div
                       className="lux-dropdown"
-                      initial={{ opacity: 0, y: -12 }}
+                      initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -12 }}
-                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                       onPointerMove={handlePointerMove}
                       role="menu"
                       aria-label="Collections Submenu"
@@ -273,16 +495,10 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
                             })}
                           </div>
                         </div>
-
-                        {/* Right column: luxury mini-mega menu storytelling preview */}
                         <div className="lux-dropdown-preview">
-                          <div className="preview-content">
-                            <span className="preview-subtitle">Curated Fragrance Journeys</span>
-                            <p className="preview-tagline">
-                              Discover fragrances crafted for every season, mood, and occasion.
-                            </p>
-                            <div className="preview-accent-flower" />
-                          </div>
+                          <span className="preview-subtitle">Curated Journeys</span>
+                          <h5 className="preview-title">{activeCollectionInfo.title}</h5>
+                          <p className="preview-text">{activeCollectionInfo.text}</p>
                         </div>
                       </div>
                     </motion.div>
@@ -318,18 +534,16 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
               <UserButton />
             </SignedIn>
 
-            <button className="nav-icon-btn" onClick={() => setIsSearchOpen(true)} title="Search" aria-label="Search">
-              <i className="fas fa-search" />
-            </button>
+            <div className="nav-icons">
+              <button className="nav-icon-btn" onClick={() => setIsSearchOpen(true)} title="Search" aria-label="Search">
+                <i className="fas fa-search" />
+              </button>
 
-            <a href="#cart" className="nav-icon-btn cart-icon" onClick={(e) => handleLinkClick(e, 'cart')} aria-label="Cart">
-              <ShoppingBagIcon className="nav-bag-icon" />
-              {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
-            </a>
-
-            <button className="nav-icon-btn theme-toggle" onClick={() => setIsThemeDark(!isThemeDark)} title="Toggle theme" aria-label="Toggle theme">
-              <i className={isThemeDark ? 'fas fa-sun' : 'fas fa-moon'} />
-            </button>
+              <a href="#cart" className="nav-icon-btn cart-icon" onClick={(e) => handleLinkClick(e, 'cart')} aria-label="Cart">
+                <ShoppingBagIcon className="nav-bag-icon" />
+                {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+              </a>
+            </div>
           </div>
         </div>
       </nav>
@@ -378,12 +592,30 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
         </ul>
       </div>
 
-      {/* Search Drawer */}
-      <div className={`search-overlay ${isSearchOpen ? 'open' : ''}`}>
-        <div className="search-container">
+      {/* Search Overlay */}
+      <div 
+        className={`search-overlay ${isSearchOpen ? 'open' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search fragrances"
+      >
+        <button 
+          className="search-close" 
+          onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
+          aria-label="Close search"
+        >
+          <i className="fas fa-times" />
+        </button>
+
+        <div 
+          className="search-container" 
+          ref={searchContainerRef} 
+          onKeyDown={handleSearchKeyDown}
+        >
           <div className="search-header">
             <i className="fas fa-search search-icon" />
             <input
+              ref={searchInputRef}
               type="text"
               className="search-input"
               placeholder="Search fragrances..."
@@ -391,9 +623,6 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
               onChange={(e) => setSearchQuery(e.target.value)}
               autoFocus={isSearchOpen}
             />
-            <button className="search-close" onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}>
-              <i className="fas fa-times" />
-            </button>
           </div>
           <div className="search-body">
             <div className="search-section">

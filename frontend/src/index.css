@@ -2,6 +2,14 @@
 
 @import "tailwindcss";
 
+:root {
+  --bg: #f8f6f2;
+  --surface: #ffffff;
+  --text: #1f1f1f;
+  --muted: #666666;
+  --border: #e8e3db;
+  --accent: #b08a56;
+}
 
 /* Decant Atelier Custom Luxury Design Tokens */
 @theme {
@@ -31,15 +39,10 @@
 
 body {
   font-family: var(--font-body);
-  background-color: var(--color-lux-bg);
-  color: var(--color-lux-text);
+  background-color: var(--bg);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-[data-theme="dark"] body {
-  background-color: #1C1B18;
-  color: #F7F3ED;
 }
 
 html {
@@ -101,4 +104,19 @@ html {
   color: #FEFCF9;
   border-color: #1C1B18;
   box-shadow: 0 6px 20px rgba(28, 27, 24, 0.15); /* Premium hover glow */
+}
+
+/* Global Typography System */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-weight: 300;
+  line-height: 1.25;
+  letter-spacing: 0.03em;
+  color: #1C1B18;
+}
+
+/* Keyboard Focus Outline */
+*:focus-visible {
+  outline: 2px solid #B08A50;
+  outline-offset: 4px;
 }

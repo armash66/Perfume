@@ -229,7 +229,7 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
       <div className="absolute -top-40 right-0 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(176,138,80,0.03)_0%,transparent_70%)] rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 left-0 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(28,27,24,0.02)_0%,transparent_70%)] rounded-full blur-3xl pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 relative z-10">
+      <div className="max-w-[1440px] mx-auto px-[clamp(1.5rem,4vw,3.5rem)] relative z-10">
         {/* Category Banner or normal breadcrumbs */}
         {(() => {
           const activeBanner = categoryBanners[currentCategory];
@@ -260,39 +260,25 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
           
           return (
             /* Normal Breadcrumbs */
-            <div className="text-[0.6rem] font-bold tracking-[3px] text-[#B08A50] uppercase mb-3">
+            <div className="text-[0.6rem] font-bold tracking-[3px] text-[#B08A50] uppercase mb-3 text-left">
               HOME / {breadcrumbText}
             </div>
           );
         })()}
 
-        {/* Title and Search Row */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div>
-            {!categoryBanners[currentCategory] && (
-              <>
-                <h2 className="font-heading text-3xl lg:text-4xl font-light text-[#1C1B18] tracking-wide">
-                  Fragrance Collection
-                </h2>
-                <div className="mt-3 h-px w-16 bg-[#B08A50]" />
-              </>
-            )}
+        {/* Title Row */}
+        {!categoryBanners[currentCategory] && (
+          <div className="mb-8 text-left">
+            <h2 className="font-heading text-3xl lg:text-4xl font-light text-[#1C1B18] tracking-wide">
+              Fragrance Collection
+            </h2>
+            <div className="mt-3 h-px w-16 bg-[#B08A50]" />
           </div>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search fragrances..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full md:w-72 pl-4 pr-10 py-3 rounded-xl border border-black/8 bg-white/60 focus:bg-white focus:border-[#1C1B18] outline-none text-xs text-[#1C1B18] transition-all duration-300 shadow-sm"
-            />
-            <i className="fas fa-search absolute right-4 top-1/2 -translate-y-1/2 text-[#1C1B18]/40 text-xs"></i>
-          </div>
-        </div>
+        )}
 
-        {/* Filter pills & Sort selector row */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-black/8 mb-10">
-          {/* Left: pills */}
+        {/* Unified Control Bar (Filters on Left, Search + Sort on Right) */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-black/8 mb-10">
+          {/* Left: Filter Pills */}
           <div className="flex flex-wrap items-center gap-2.5">
             {[
               { id: 'all', label: 'All' },
@@ -306,8 +292,8 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
                   key={pill.id}
                   onClick={() => setCategory(pill.id)}
                   className={`
-                    px-5 py-2 rounded-full text-[0.62rem] font-bold tracking-wider uppercase
-                    transition-all duration-300 ease-out whitespace-nowrap cursor-pointer border
+                    px-5 py-2.5 rounded-full text-[0.65rem] font-bold tracking-wider uppercase
+                    transition-all duration-300 ease-out whitespace-nowrap cursor-pointer border min-h-[44px] flex items-center justify-center
                     ${isActive
                       ? 'bg-[#1C1B18] border-[#1C1B18] text-[#FEFCF9] shadow-sm'
                       : 'bg-transparent border-black/8 text-[#1C1B18] hover:bg-[#EFE8DD] hover:border-[#1C1B18]/50'
@@ -323,25 +309,39 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
             {(currentCategory !== 'all' || searchQuery !== '' || sortBy !== 'recommended') && (
               <button
                 onClick={handleClearFilters}
-                className="ml-3 text-[0.65rem] font-bold tracking-widest text-[#1C1B18] hover:text-[#B08A50] transition-colors duration-300 underline underline-offset-4 uppercase cursor-pointer"
+                className="ml-3 text-[0.65rem] font-bold tracking-widest text-[#1C1B18] hover:text-[#B08A50] transition-colors duration-300 underline underline-offset-4 uppercase cursor-pointer min-h-[44px] flex items-center"
               >
                 Clear Filters
               </button>
             )}
           </div>
 
-          {/* Right: sorting */}
-          <div className="flex items-center gap-3">
-            <span className="text-[0.65rem] font-bold uppercase tracking-wider text-black/40">Sort by:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-[#FEFCF9] border border-black/8 rounded-xl px-4 py-2.5 text-[0.68rem] font-bold text-[#1C1B18] outline-none focus:border-[#1C1B18] cursor-pointer shadow-sm uppercase tracking-wider"
-            >
-              <option value="recommended">Recommended</option>
-              <option value="price-low">Price: Low to High</option>
-              <option value="price-high">Price: High to Low</option>
-            </select>
+          {/* Right: Search + Sort controls */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Search input container */}
+            <div className="relative flex-1 sm:flex-none">
+              <input
+                type="text"
+                placeholder="Search fragrances..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full sm:w-64 pl-4 pr-10 py-3 rounded-xl border border-black/8 bg-white/60 focus:bg-white focus:border-[#1C1B18] outline-none text-xs text-[#1C1B18] transition-all duration-300 shadow-sm min-h-[44px]"
+              />
+              <i className="fas fa-search absolute right-4 top-1/2 -translate-y-1/2 text-[#1C1B18]/40 text-xs pointer-events-none"></i>
+            </div>
+
+            {/* Sort selector container */}
+            <div className="flex items-center">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full sm:w-auto bg-[#FEFCF9] border border-black/8 rounded-xl px-4 py-2.5 text-[0.68rem] font-bold text-[#1C1B18] outline-none focus:border-[#1C1B18] cursor-pointer shadow-sm uppercase tracking-wider min-h-[44px]"
+              >
+                <option value="recommended">Sort: Recommended</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -390,17 +390,17 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
                 {/* Info block */}
                 <div className="p-5 flex flex-col flex-1">
                   {/* Brand / Category Badge */}
-                  <span className="text-[0.55rem] font-bold tracking-[2px] text-black/40 block mb-1 uppercase">
+                  <span className="text-[0.55rem] font-bold tracking-[2px] text-black/40 block mb-1.5 uppercase text-left">
                     {item.category === 'sets' ? 'CURATED SET' : (item.brand || 'FRAGRANCE')}
                   </span>
 
                   {/* Product Title */}
-                  <h3 className="font-heading text-base font-normal text-[#1C1B18] mb-1.5 tracking-wide leading-tight group-hover:text-[#B08A50] transition-colors duration-300 truncate">
+                  <h3 className="font-heading text-base font-normal text-[#1C1B18] mb-1.5 tracking-wide leading-tight group-hover:text-[#B08A50] transition-colors duration-300 line-clamp-2 min-h-[2.5rem] text-left">
                     {item.name}
                   </h3>
 
                   {/* Selected size price */}
-                  <div className="text-xs font-semibold text-[#B08A50] mb-3">
+                  <div className="text-xs font-semibold text-[#B08A50] mb-3 text-left">
                     ₹{(() => {
                       const idx = getCardSizeIndex(item.id);
                       const priceVal = item.sizes && item.sizes[idx] ? item.sizes[idx].price : item.price;
@@ -409,50 +409,54 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
                   </div>
 
                   {/* Size selectors */}
-                  {item.sizes && item.sizes.length > 0 && (
-                    <div className="flex flex-nowrap gap-1 mb-4 overflow-x-auto scrollbar-hide py-0.5 whitespace-nowrap">
-                      {item.sizes.map((sz, idx) => {
-                        const isSelected = getCardSizeIndex(item.id) === idx;
-                        const sizeLabel = sz.size.split(' ')[0].toUpperCase();
-                        const isOutOfStock = item.tags && item.tags.includes('out-of-stock');
-                        
-                        if (isOutOfStock) {
+                  <div className="min-h-[36px] mb-4 flex items-center justify-start">
+                    {item.sizes && item.sizes.length > 0 ? (
+                      <div className="flex flex-nowrap gap-1 overflow-x-auto scrollbar-hide py-0.5 whitespace-nowrap w-full">
+                        {item.sizes.map((sz, idx) => {
+                          const isSelected = getCardSizeIndex(item.id) === idx;
+                          const sizeLabel = sz.size.split(' ')[0].toUpperCase();
+                          const isOutOfStock = item.tags && item.tags.includes('out-of-stock');
+                          
+                          if (isOutOfStock) {
+                            return (
+                              <button
+                                key={idx}
+                                disabled
+                                className={`
+                                  px-2.5 py-1.5 rounded-xl border text-[0.6rem] font-medium select-none cursor-not-allowed transition-all duration-200
+                                  ${isSelected 
+                                    ? 'border-black/20 text-black/40 bg-black/5' 
+                                    : 'border-black/8 text-black/30 bg-black/2'
+                                  }
+                                `}
+                                style={{ textDecoration: 'line-through' }}
+                              >
+                                {sizeLabel}
+                              </button>
+                            );
+                          }
+                          
                           return (
                             <button
                               key={idx}
-                              disabled
+                              onClick={(e) => handleSelectCardSize(item.id, idx, e)}
                               className={`
-                                px-2.5 py-1.5 rounded-xl border text-[0.6rem] font-medium select-none cursor-not-allowed transition-all duration-200
-                                ${isSelected 
-                                  ? 'border-black/20 text-black/40 bg-black/5' 
-                                  : 'border-black/8 text-black/30 bg-black/2'
+                                px-2.5 py-1.5 rounded-xl text-[0.6rem] font-semibold uppercase transition-all duration-200 cursor-pointer select-none border min-h-[32px] min-w-[32px] flex items-center justify-center
+                                ${isSelected
+                                  ? 'bg-[#1C1B18] border-[#1C1B18] text-white'
+                                  : 'bg-transparent border-black/8 text-[#1C1B18] hover:border-black/30'
                                 }
                               `}
-                              style={{ textDecoration: 'line-through' }}
                             >
                               {sizeLabel}
                             </button>
                           );
-                        }
-                        
-                        return (
-                          <button
-                            key={idx}
-                            onClick={(e) => handleSelectCardSize(item.id, idx, e)}
-                            className={`
-                              px-2.5 py-1.5 rounded-xl text-[0.6rem] font-semibold uppercase transition-all duration-200 cursor-pointer select-none border
-                              ${isSelected
-                                ? 'bg-[#1C1B18] border-[#1C1B18] text-white'
-                                : 'bg-transparent border-black/8 text-[#1C1B18] hover:border-black/30'
-                              }
-                            `}
-                          >
-                            {sizeLabel}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                        })}
+                      </div>
+                    ) : (
+                      <div className="h-0" />
+                    )}
+                  </div>
 
                   {/* Add to Cart / Sold Out Button */}
                   {(() => {
@@ -465,7 +469,7 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
                       return (
                         <button
                           disabled
-                          className="w-full py-2.5 rounded-xl border border-black/5 bg-black/5 text-black/30 text-[0.65rem] font-bold tracking-widest uppercase text-center cursor-not-allowed mt-auto"
+                          className="w-full py-2.5 rounded-xl border border-black/5 bg-black/5 text-black/30 text-[0.65rem] font-bold tracking-widest uppercase text-center cursor-not-allowed mt-auto min-h-[44px]"
                         >
                           SOLD OUT
                         </button>
@@ -477,7 +481,7 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
                         onClick={(e) => handleCardAddToCart(item, selectedOption, e)}
                         disabled={isAdding}
                         className={`
-                          w-full py-2.5 rounded-xl border text-[0.65rem] font-bold tracking-widest uppercase transition-all duration-300 mt-auto cursor-pointer
+                          w-full py-2.5 rounded-xl border text-[0.65rem] font-bold tracking-widest uppercase transition-all duration-300 mt-auto cursor-pointer min-h-[44px]
                           ${isAdding
                             ? 'bg-[#1C1B18] text-white border-[#1C1B18]'
                             : 'bg-transparent border-[#1C1B18] text-[#1C1B18] hover:bg-[#1C1B18] hover:text-white'

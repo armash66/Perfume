@@ -1,13 +1,14 @@
 .gift-section {
-  padding: 8rem 2rem;
+  padding: 8rem 0;
   background: var(--color-lux-bg, #F7F3ED);
   position: relative;
   overflow: hidden;
 }
 
 .gift-container {
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
+  padding: 0 clamp(1.5rem, 4vw, 3.5rem);
 }
 
 .gift-header {
@@ -154,6 +155,7 @@
   align-items: center;
   justify-content: center;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 44px;
   padding: 12px 28px;
   border: 1px solid rgba(176, 138, 80, 0.4); /* Elegant gold border highlight */
   border-radius: 14px; /* Slightly rounded corners */

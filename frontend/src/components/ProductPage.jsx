@@ -68,7 +68,7 @@ export default function ProductPage({ product, onBackToShop }) {
 
   return (
     <div className="relative bg-[#F7F3ED] min-h-screen pb-20 font-body select-none">
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 pt-8">
+      <div className="max-w-[1440px] mx-auto px-[clamp(1.5rem,4vw,3.5rem)] pt-8">
         
         {/* Breadcrumbs */}
         <div className="text-[0.6rem] font-bold tracking-[3px] text-[#B08A50] uppercase mb-8">
@@ -159,7 +159,7 @@ export default function ProductPage({ product, onBackToShop }) {
                     key={idx}
                     onClick={() => setSelectedSizeIndex(idx)}
                     className={`
-                      px-4 py-2.5 rounded-none text-[0.68rem] font-bold tracking-widest uppercase cursor-pointer border transition-all duration-300
+                      px-4 py-2.5 rounded-none text-[0.68rem] font-bold tracking-widest uppercase cursor-pointer border transition-all duration-300 min-h-[44px] flex items-center justify-center
                       ${selectedSizeIndex === idx
                         ? 'bg-[#1C1B18] border-[#1C1B18] text-[#FEFCF9] shadow-sm'
                         : 'bg-[#FEFCF9] border-black/8 text-[#1C1B18] hover:border-black/20'
@@ -216,7 +216,7 @@ export default function ProductPage({ product, onBackToShop }) {
                 w-full mt-3 py-4 rounded-none bg-[#1C1B18] text-white
                 hover:bg-[#B08A50] border border-[#1C1B18] hover:border-[#B08A50]
                 text-[0.68rem] font-bold tracking-widest uppercase shadow-sm
-                transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer
+                transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer min-h-[44px]
               "
             >
               {isAdding ? (
