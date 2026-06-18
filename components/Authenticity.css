@@ -1,0 +1,196 @@
+.auth-section {
+  padding: 0 2rem 4rem;
+  background: var(--color-ivory, #FFF8E7);
+}
+
+.auth-card {
+  max-width: 1280px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, var(--color-teal, #0F3D3E) 0%, var(--color-teal-deep, #072227) 100%);
+  border: 1px solid rgba(226, 194, 117, 0.18);
+  border-radius: 20px;
+  padding: 3.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+  color: #fff;
+  box-shadow: 0 20px 50px rgba(15, 61, 62, 0.18);
+}
+
+/* Left side */
+.auth-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--color-champagne, #E2C275);
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.auth-title {
+  font-family: var(--font-heading), serif;
+  font-size: clamp(1.4rem, 2.5vw, 1.9rem);
+  font-weight: 700;
+  color: var(--color-ivory, #FFF8E7);
+  margin: 0 0 1rem;
+  line-height: 1.3;
+}
+
+.auth-desc {
+  font-size: 0.875rem;
+  color: rgba(236, 217, 163, 0.65);
+  line-height: 1.7;
+  margin: 0 0 2rem;
+  font-weight: 300;
+}
+
+/* Badges */
+.auth-badges {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.auth-badge {
+  background: rgba(226, 194, 117, 0.07);
+  border: 1px solid rgba(226, 194, 117, 0.18);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.auth-badge:hover {
+  background: rgba(226, 194, 117, 0.13);
+  border-color: rgba(226, 194, 117, 0.35);
+}
+
+.badge-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-ivory, #FFF8E7);
+}
+
+.badge-sub {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(226, 194, 117, 0.55);
+}
+
+/* Right side Certificate card */
+.auth-certificate {
+  background: var(--color-ivory-warm, #FFFEF5);
+  border: 1px solid rgba(226, 194, 117, 0.4);
+  border-radius: 14px;
+  padding: 2rem;
+  color: var(--color-teal-deep, #072227);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.cert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.cert-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(7, 34, 39, 0.45);
+}
+
+.cert-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--color-teal, #0F3D3E), var(--color-teal-deep, #072227));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-champagne, #E2C275);
+  font-size: 0.9rem;
+  box-shadow: 0 2px 8px rgba(15, 61, 62, 0.3);
+}
+
+.cert-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-teal-deep, #072227);
+  margin: 0 0 0.5rem;
+  line-height: 1.3;
+}
+
+.cert-desc {
+  font-size: 0.8rem;
+  color: rgba(7, 34, 39, 0.6);
+  line-height: 1.6;
+  margin: 0 0 1.25rem;
+}
+
+.cert-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(7, 34, 39, 0.1);
+}
+
+.cert-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--color-teal-deep, #072227);
+  font-weight: 500;
+}
+
+.cert-list li i {
+  color: var(--color-bronze, #C4A85A);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.cert-verified {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(7, 34, 39, 0.4);
+  margin: 0;
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+  .auth-section {
+    padding: 0 1.25rem 2rem;
+  }
+
+  .auth-card {
+    padding: 2rem 1.5rem;
+    border-radius: 16px;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-badges {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+  .auth-title {
+    font-size: 1.3rem;
+  }
+}
