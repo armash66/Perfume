@@ -74,12 +74,42 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
   const searchInputRef = useRef(null);
   const searchContainerRef = useRef(null);
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [recentSearches, setRecentSearches] = useState([]);
 
+  // Load recent searches from localStorage
+  useEffect(() => {
+    if (isSearchOpen) {
+      const saved = localStorage.getItem('recentSearches');
+      if (saved) {
+        try {
+          setRecentSearches(JSON.parse(saved));
+        } catch (e) {
+          setRecentSearches([]);
+        }
+      }
+    }
+  }, [isSearchOpen]);
+
+  const addRecentSearch = (term) => {
+    if (!term || term.trim() === '') return;
+    const cleanTerm = term.trim();
+    setRecentSearches(prev => {
+      const filtered = prev.filter(t => t.toLowerCase() !== cleanTerm.toLowerCase());
+      const updated = [cleanTerm, ...filtered].slice(0, 5); // Keep last 5
+      localStorage.setItem('recentSearches', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleTermClick = (term) => {
+    setSearchQuery(term);
+    addRecentSearch(term);
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(searchQuery);
-    }, 250);
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -306,23 +336,56 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
   const handleSearchProductClick = (product) => {
     setIsSearchOpen(false);
     setSearchQuery('');
-    if (onSelectCategory) onSelectCategory('all');
-    if (onNavigate) onNavigate('shop');
-    window.location.hash = 'collection';
-    setTimeout(() => {
-      const el = document.getElementById('collection');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    window.location.hash = `product-${product.id}`;
   };
 
   const filteredProducts = useMemo(() => {
-    if (!debouncedQuery) return collectionsData;
-    const q = debouncedQuery.toLowerCase();
+    if (!debouncedQuery) return [];
+    const q = debouncedQuery.toLowerCase().trim();
     return collectionsData.filter(product =>
       product.name.toLowerCase().includes(q) ||
+      (product.brand && product.brand.toLowerCase().includes(q)) ||
       product.category.toLowerCase().includes(q) ||
-      product.notes.some(n => n.toLowerCase().includes(q))
+      (product.notes && product.notes.some(n => n.toLowerCase().includes(q))) ||
+      (product.tags && product.tags.some(t => t.toLowerCase().includes(q)))
     );
+  }, [debouncedQuery]);
+
+  const matchingBrands = useMemo(() => {
+    if (!debouncedQuery) return [];
+    const q = debouncedQuery.toLowerCase().trim();
+    const brandsSet = new Set();
+    collectionsData.forEach(p => {
+      if (p.brand && p.brand.toLowerCase().includes(q)) {
+        brandsSet.add(p.brand);
+      }
+    });
+    return Array.from(brandsSet).slice(0, 5);
+  }, [debouncedQuery]);
+
+  const matchingCategories = useMemo(() => {
+    if (!debouncedQuery) return [];
+    const q = debouncedQuery.toLowerCase().trim();
+    const catsSet = new Set();
+    const popularCats = ['Fresh', 'Woody', 'Floral', 'Spicy', 'Sweet', 'Citrus', 'Amber', 'Warm'];
+    popularCats.forEach(c => {
+      if (c.toLowerCase().includes(q)) {
+        catsSet.add(c);
+      }
+    });
+    collectionsData.forEach(p => {
+      if (p.category && p.category.toLowerCase().includes(q)) {
+        catsSet.add(p.category.charAt(0).toUpperCase() + p.category.slice(1));
+      }
+      if (p.tags) {
+        p.tags.forEach(t => {
+          if (t.toLowerCase().includes(q)) {
+            catsSet.add(t.charAt(0).toUpperCase() + t.slice(1));
+          }
+        });
+      }
+    });
+    return Array.from(catsSet).slice(0, 5);
   }, [debouncedQuery]);
 
   const activeShopInfo = useMemo(() => {
@@ -612,41 +675,212 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
           ref={searchContainerRef} 
           onKeyDown={handleSearchKeyDown}
         >
-          <div className="search-header">
-            <i className="fas fa-search search-icon" />
+          <div className="search-header border-b border-neutral-300 focus-within:border-amber-500 transition-colors duration-300 flex items-center gap-4 py-2">
+            <i className="fas fa-search text-neutral-400 text-2xl" />
             <input
               ref={searchInputRef}
               type="text"
-              className="search-input"
+              className="w-full bg-transparent border-none outline-none font-heading font-light tracking-wide text-neutral-800 h-[56px] text-lg lg:h-[72px] lg:text-3xl"
               placeholder="Search fragrances..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  addRecentSearch(searchQuery);
+                }
+              }}
               autoFocus={isSearchOpen}
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-neutral-400 hover:text-neutral-800 transition-colors cursor-pointer bg-transparent border-none p-0"
+                aria-label="Clear search query"
+              >
+                <i className="fas fa-times-circle text-lg" />
+              </button>
+            )}
           </div>
+          
           <div className="search-body">
-            <div className="search-section">
-              <h4 className="search-section-title">Trending</h4>
-              <div className="search-pills">
-                {['9 PM', 'Rare', 'Supremacy', 'Peach', 'Fruit'].map(p => (
-                  <button key={p} className="search-pill" onClick={() => setSearchQuery(p)}>{p}</button>
-                ))}
-              </div>
-            </div>
-            <div className="search-section">
-              <h4 className="search-section-title">Products</h4>
-              <div className="search-grid">
-                {filteredProducts.slice(0, 6).map(product => (
-                  <div key={product.id} className="search-card" onClick={() => handleSearchProductClick(product)}>
-                    <div className="search-card-img">
-                      <img src={product.image} alt={product.name} />
+            {searchQuery.trim() === '' ? (
+              /* Discovery State when Query is Empty */
+              <div className="space-y-10">
+                {recentSearches.length > 0 && (
+                  <div className="search-section">
+                    <h4 className="search-section-title">Recent Searches</h4>
+                    <div className="search-pills">
+                      {recentSearches.map(term => (
+                        <button key={term} className="search-pill rounded-full px-4 py-2 hover:bg-black hover:text-white transition-all duration-300" onClick={() => handleTermClick(term)}>{term}</button>
+                      ))}
                     </div>
-                    <span className="search-card-name">{product.name}</span>
-                    <span className="search-card-price">₹ {(parseFloat(product.price) * 20).toLocaleString('en-IN')}.00</span>
                   </div>
-                ))}
+                )}
+                
+                <div className="search-section">
+                  <h4 className="search-section-title">Trending Searches</h4>
+                  <div className="search-pills">
+                    {['Bleu de Chanel', 'Yara', 'Khamrah', 'Spicebomb', 'Baccarat Rouge'].map(term => (
+                      <button key={term} className="search-pill rounded-full px-4 py-2 hover:bg-black hover:text-white transition-all duration-300" onClick={() => handleTermClick(term)}>{term}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="search-section">
+                  <h4 className="search-section-title">Popular Categories</h4>
+                  <div className="search-pills">
+                    {['Fresh', 'Floral', 'Woody', 'Warm', 'Spicy', 'Citrus', 'Sweet', 'Amber'].map(cat => (
+                      <button key={cat} className="search-pill rounded-full px-4 py-2 hover:bg-black hover:text-white transition-all duration-300" onClick={() => handleTermClick(cat)}>{cat}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="search-section">
+                  <h4 className="search-section-title">Featured Fragrances</h4>
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 lg:grid-cols-4 lg:gap-6 xl:grid-cols-5 xl:gap-8 w-full">
+                    {collectionsData.filter(p => p.tags && p.tags.includes('featured')).slice(0, 10).map(product => (
+                      <div
+                        key={product.id}
+                        className="group rounded-3xl overflow-hidden bg-white border border-neutral-100 shadow-sm transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl cursor-pointer flex flex-col h-full min-w-[160px]"
+                        onClick={() => {
+                          handleSearchProductClick(product);
+                          addRecentSearch(product.name);
+                        }}
+                      >
+                        <div className="relative aspect-[4/5] overflow-hidden rounded-3xl bg-[#faf8f5] w-full">
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            loading="lazy"
+                            className="w-full h-full object-cover object-center transition-all duration-700 group-hover:scale-105"
+                          />
+                        </div>
+                        <div className="p-4 flex flex-col justify-between flex-1">
+                          <div>
+                            <span className="text-xs tracking-[0.25em] uppercase text-neutral-400 block mb-1">
+                              {product.brand.toUpperCase()}
+                            </span>
+                            <h5 className="line-clamp-2 font-medium text-neutral-800 text-sm group-hover:text-[#B89563] transition-colors duration-300">
+                              {product.name}
+                            </h5>
+                          </div>
+                          <div className="font-semibold text-amber-700 mt-2">
+                            ₹ {(parseFloat(product.price) * 20).toLocaleString('en-IN')}.00
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Autocomplete and Search Results when Query is Active */
+              <div>
+                {/* Autocomplete / Match Previews */}
+                {(matchingBrands.length > 0 || matchingCategories.length > 0) && (
+                  <div className="flex flex-wrap gap-6 mb-8 p-4 bg-white/50 rounded-2xl border border-neutral-200/50 backdrop-blur-sm">
+                    {matchingBrands.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[0.62rem] font-bold tracking-[2px] text-neutral-400 uppercase">Brands:</span>
+                        <div className="flex gap-2">
+                          {matchingBrands.map(b => (
+                            <button
+                              key={b}
+                              onClick={() => handleTermClick(b)}
+                              className="text-xs font-bold text-neutral-800 hover:text-[#B89563] underline decoration-[#B89563]/30 hover:decoration-[#B89563] transition-all cursor-pointer bg-transparent border-none p-0"
+                            >
+                              {b}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {matchingBrands.length > 0 && matchingCategories.length > 0 && (
+                      <div className="text-neutral-300 px-1">|</div>
+                    )}
+                    {matchingCategories.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[0.62rem] font-bold tracking-[2px] text-neutral-400 uppercase">Categories:</span>
+                        <div className="flex gap-2">
+                          {matchingCategories.map(c => (
+                            <button
+                              key={c}
+                              onClick={() => handleTermClick(c)}
+                              className="text-xs font-bold text-neutral-800 hover:text-[#B89563] underline decoration-[#B89563]/30 hover:decoration-[#B89563] transition-all cursor-pointer bg-transparent border-none p-0"
+                            >
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Results Grid or Empty State */}
+                {filteredProducts.length > 0 ? (
+                  <div className="search-section">
+                    <h4 className="search-section-title">Matching Products ({filteredProducts.length})</h4>
+                    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 lg:grid-cols-4 lg:gap-6 xl:grid-cols-5 xl:gap-8 w-full">
+                      {filteredProducts.map(product => (
+                        <div
+                          key={product.id}
+                          className="group rounded-3xl overflow-hidden bg-white border border-neutral-100 shadow-sm transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl cursor-pointer flex flex-col h-full min-w-[160px]"
+                          onClick={() => {
+                            handleSearchProductClick(product);
+                            addRecentSearch(product.name);
+                          }}
+                        >
+                          <div className="relative aspect-[4/5] overflow-hidden rounded-3xl bg-[#faf8f5] w-full">
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              loading="lazy"
+                              className="w-full h-full object-cover object-center transition-all duration-700 group-hover:scale-105"
+                            />
+                          </div>
+                          <div className="p-4 flex flex-col justify-between flex-1">
+                            <div>
+                              <span className="text-xs tracking-[0.25em] uppercase text-neutral-400 block mb-1">
+                                {product.brand.toUpperCase()}
+                              </span>
+                              <h5 className="line-clamp-2 font-medium text-neutral-800 text-sm group-hover:text-[#B89563] transition-colors duration-300">
+                                {product.name}
+                              </h5>
+                            </div>
+                            <div className="font-semibold text-amber-700 mt-2">
+                              ₹ {(parseFloat(product.price) * 20).toLocaleString('en-IN')}.00
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  /* Elegant Empty State */
+                  <div className="py-16 text-center">
+                    <i className="fas fa-search-minus text-neutral-300 text-5xl mb-4 block" />
+                    <p className="font-heading text-xl font-light text-neutral-700 mb-6">
+                      No fragrances found.
+                    </p>
+                    <div>
+                      <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest block mb-3">Try:</span>
+                      <div className="flex flex-wrap justify-center gap-3">
+                        {['Chanel', 'Yara', 'Khamrah', 'Spicebomb'].map(term => (
+                          <button
+                            key={term}
+                            onClick={() => handleTermClick(term)}
+                            className="px-4 py-2 text-xs font-semibold text-neutral-700 bg-white border border-neutral-200 rounded-full hover:bg-black hover:text-white hover:border-black transition-all duration-300 cursor-pointer"
+                          >
+                            {term}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

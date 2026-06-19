@@ -410,6 +410,7 @@
   opacity: 0;
   visibility: hidden;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .search-overlay.open {
@@ -419,12 +420,24 @@
 }
 
 .search-container {
-  max-width: 1200px;
+  max-width: 1600px;
   width: 100%;
   margin: 0 auto;
-  padding: 4rem 2rem;
+  padding: 4rem 1rem;
   display: flex;
   flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .search-container {
+    padding: 4rem 1.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .search-container {
+    padding: 4rem 4rem;
+  }
 }
 
 .search-header {
@@ -459,7 +472,7 @@
 }
 
 .search-close {
-  position: absolute;
+  position: fixed;
   top: 32px;
   right: 32px;
   background: none;
@@ -523,59 +536,6 @@
   color: #B89563;
 }
 
-.search-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 1.5rem;
-}
-
-.search-card {
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  transition: transform 0.3s ease;
-}
-
-.search-card:hover {
-  transform: translateY(-3px);
-}
-
-.search-card-img {
-  aspect-ratio: 1;
-  overflow: hidden;
-  border: 1px solid rgba(0,0,0,0.04);
-  background: #FEFCF9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.search-card-img img {
-  max-width: 85%;
-  max-height: 85%;
-  object-fit: contain;
-  transition: transform 0.4s ease;
-}
-
-.search-card:hover .search-card-img img {
-  transform: scale(1.06);
-}
-
-.search-card-name {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: #1B1A17;
-}
-
-.search-card-price {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #B89563;
-}
 
 /* ═══════════════════════════════════════════════════════════
    LUXURY COLLECTIONS DROPDOWN
@@ -806,9 +766,6 @@
 
 /* Extra overrides for search overlay sizing on tablet & mobile */
 @media (max-width: 768px) {
-  .search-container {
-    padding: 2.5rem 1.25rem;
-  }
   .search-header {
     margin-top: 4.5rem;
     padding-bottom: 1rem;
