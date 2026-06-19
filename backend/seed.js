@@ -12,6 +12,8 @@ async function main() {
   await prisma.order.deleteMany({});
   await prisma.address.deleteMany({});
   await prisma.cartItem.deleteMany({});
+  await prisma.collectionProduct.deleteMany({});
+  await prisma.collection.deleteMany({});
   await prisma.productVariant.deleteMany({});
   await prisma.productImage.deleteMany({});
   await prisma.product.deleteMany({});
@@ -229,7 +231,88 @@ async function main() {
     console.log(`Product created: ${product.name}`);
   }
 
-  // 4. Create Mock Users
+  // 4. Create independently managed storefront collection pages
+  console.log('Creating storefront collections...');
+  const collectionSource = [
+    {
+      name: 'Summer Perfumes', slug: 'summer', eyebrow: 'Seasonal Edit', sortOrder: 10,
+      description: 'Discover fresh, citrusy, and aquatic fragrances perfect for hot Indian summers.',
+      imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
+      products: ['bleu-de-chanel', 'afnan-supremacy', 'azzaro-the-most-wanted']
+    },
+    {
+      name: 'Winter Perfumes', slug: 'winter', eyebrow: 'Seasonal Edit', sortOrder: 20,
+      description: 'Explore warm, spicy, vanilla, and woody fragrances that perform exceptionally well in colder weather.',
+      imageUrl: 'https://images.unsplash.com/photo-1482862549707-f63cb32c5fd9?auto=format&fit=crop&w=1200&q=80',
+      products: ['spicebomb-extreme', 'lattafa-khamrah', 'baccarat-rouge-540']
+    },
+    {
+      name: 'Office Perfumes', slug: 'office', eyebrow: 'Occasion', sortOrder: 30,
+      description: 'Professional, versatile, and crowd-pleasing fragrances ideal for work environments.',
+      imageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80',
+      products: ['bleu-de-chanel', 'afnan-supremacy', 'azzaro-the-most-wanted']
+    },
+    {
+      name: 'Gym Perfumes', slug: 'gym', eyebrow: 'Occasion', sortOrder: 40,
+      description: 'Clean, energetic, and refreshing fragrances selected for active days.',
+      imageUrl: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80',
+      products: ['afnan-supremacy', 'bleu-de-chanel']
+    },
+    {
+      name: 'Date Night Perfumes', slug: 'datenight', eyebrow: 'Occasion', sortOrder: 50,
+      description: 'Seductive and memorable fragrances crafted for special moments.',
+      imageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80',
+      products: ['valentino-born-in-roma', 'baccarat-rouge-540', 'lattafa-yara']
+    },
+    {
+      name: 'Party Perfumes', slug: 'party', eyebrow: 'Occasion', sortOrder: 60,
+      description: 'Bold, attention-grabbing scents designed to stand out in any crowd.',
+      imageUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
+      products: ['spicebomb-extreme', 'valentino-born-in-roma', 'lattafa-khamrah']
+    },
+    {
+      name: 'For Her', slug: 'her', eyebrow: 'Curated For You', sortOrder: 70,
+      description: 'Elegant feminine scents, from romantic florals to confident statement fragrances.',
+      imageUrl: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=1200&q=80',
+      products: ['lattafa-yara', 'baccarat-rouge-540']
+    },
+    {
+      name: 'For Him', slug: 'him', eyebrow: 'Curated For You', sortOrder: 80,
+      description: 'Bold, charismatic, and refined masculine scents for every setting.',
+      imageUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80',
+      products: ['azzaro-the-most-wanted', 'spicebomb-extreme', 'valentino-born-in-roma', 'bleu-de-chanel']
+    },
+    {
+      name: 'New Arrivals', slug: 'newarrivals', eyebrow: 'Just Landed', sortOrder: 90,
+      description: 'Explore the newest additions to the Decant Atelier catalogue.',
+      imageUrl: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=1200&q=80',
+      products: ['valentino-born-in-roma-set', 'afnan-supremacy', 'bleu-de-chanel']
+    },
+    {
+      name: 'Best Sellers', slug: 'bestsellers', eyebrow: 'Client Favorites', sortOrder: 100,
+      description: 'Our most requested fragrances, selected from real catalogue favorites.',
+      imageUrl: 'https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=1200&q=80',
+      products: productSource.filter(product => product.featured).map(product => product.id)
+    }
+  ];
+
+  for (const source of collectionSource) {
+    await prisma.collection.create({
+      data: {
+        name: source.name,
+        slug: source.slug,
+        eyebrow: source.eyebrow,
+        description: source.description,
+        imageUrl: source.imageUrl,
+        sortOrder: source.sortOrder,
+        items: {
+          create: source.products.map((productId, position) => ({ productId, position }))
+        }
+      }
+    });
+  }
+
+  // 5. Create Mock Users
   console.log('Creating mock users and addresses...');
   
   const user1 = await prisma.user.create({

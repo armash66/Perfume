@@ -1,0 +1,37 @@
+.standalone-page-container {
+  min-height: 100vh;
+}
+
+.standalone-header {
+  padding: 1rem 1.25rem;
+}
+
+.standalone-header-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.standalone-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0;
+  background: transparent;
+  color: #4a4339;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.standalone-logo {
+  font-family: Georgia, serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 0.92rem;
+  color: #1f1d18;
+}

@@ -176,6 +176,114 @@ app.post('/api/addresses', requireAuth, async (req, res) => {
   }
 });
 
+// PUT update address
+app.put('/api/addresses/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { fullName, phone, addressLine1, addressLine2, city, state, postalCode, isDefault } = req.body;
+
+  if (!fullName || !phone || !addressLine1 || !city || !state || !postalCode) {
+    return res.status(400).json({ error: 'Missing required address fields' });
+  }
+
+  try {
+    const dbUser = await getOrCreateDbUser(req.auth.userId);
+
+    // Verify address belongs to user
+    const address = await prisma.address.findFirst({
+      where: { id, userId: dbUser.id }
+    });
+    if (!address) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+
+    // If setting as default, clear previous default flag for this user
+    if (isDefault) {
+      await prisma.address.updateMany({
+        where: { userId: dbUser.id, isDefault: true },
+        data: { isDefault: false }
+      });
+    }
+
+    const updatedAddress = await prisma.address.update({
+      where: { id },
+      data: {
+        fullName,
+        phone,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+        postalCode,
+        isDefault: !!isDefault
+      }
+    });
+
+    return res.status(200).json(updatedAddress);
+  } catch (err) {
+    console.error('Failed to update address:', err);
+    return res.status(500).json({ error: 'Failed to update address' });
+  }
+});
+
+// DELETE address
+app.delete('/api/addresses/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const dbUser = await getOrCreateDbUser(req.auth.userId);
+
+    // Verify address belongs to user
+    const address = await prisma.address.findFirst({
+      where: { id, userId: dbUser.id }
+    });
+    if (!address) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+
+    await prisma.address.delete({
+      where: { id }
+    });
+
+    return res.status(200).json({ success: true, message: 'Address deleted successfully' });
+  } catch (err) {
+    console.error('Failed to delete address:', err);
+    return res.status(500).json({ error: 'Failed to delete address' });
+  }
+});
+
+// PATCH set address as default
+app.patch('/api/addresses/:id/default', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const dbUser = await getOrCreateDbUser(req.auth.userId);
+
+    // Verify address belongs to user
+    const address = await prisma.address.findFirst({
+      where: { id, userId: dbUser.id }
+    });
+    if (!address) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+
+    // Clear previous default flag for this user
+    await prisma.address.updateMany({
+      where: { userId: dbUser.id, isDefault: true },
+      data: { isDefault: false }
+    });
+
+    const updatedAddress = await prisma.address.update({
+      where: { id },
+      data: { isDefault: true }
+    });
+
+    return res.status(200).json(updatedAddress);
+  } catch (err) {
+    console.error('Failed to set default address:', err);
+    return res.status(500).json({ error: 'Failed to set default address' });
+  }
+});
+
 // ============================================================
 // ORDER MANAGEMENT ROUTES
 // ============================================================

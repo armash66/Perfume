@@ -127,9 +127,9 @@ function App() {
 
   return (
     <div className="flex flex-col gap-0 min-h-screen">
-      {activePage !== 'admin' && <DailyOfferPopup />}
+      {activePage !== 'admin' && activePage !== 'cart' && activePage !== 'profile' && <DailyOfferPopup />}
       
-      {activePage !== 'admin' && (
+      {activePage !== 'admin' && activePage !== 'cart' && activePage !== 'profile' && (
         <Navbar
           onNavigate={setActivePage}
           activePage={activePage}
@@ -152,7 +152,7 @@ function App() {
       )}
 
       {activePage !== 'home' && (
-        <div className={activePage === 'admin' ? '' : 'main-content-padding'}>
+        <div className={(activePage === 'admin' || activePage === 'cart' || activePage === 'profile') ? '' : 'main-content-padding'}>
           {activePage === 'shop' && (
             <SignatureCollection
               activeCategory={activeCategory}
@@ -200,7 +200,7 @@ function App() {
         </div>
       )}
 
-      {activePage !== 'admin' && <Footer onNavigate={setActivePage} />}
+      {activePage !== 'admin' && activePage !== 'cart' && activePage !== 'profile' && <Footer onNavigate={setActivePage} />}
     </div>
   );
 }

@@ -43,6 +43,8 @@ export const addToCart = (product, sizeOption, quantity = 1) => {
     // Add new item with necessary visual fields
     cart.push({
       id: product.id,
+      productId: product.id,
+      variantId: sizeOption.id,
       name: product.name,
       brand: product.brand,
       image: product.image,

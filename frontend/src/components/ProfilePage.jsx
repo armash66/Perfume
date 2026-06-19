@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
-import { useAuth, useUser, SignInButton, SignOutButton } from '@clerk/clerk-react';
+import { useEffect, useState } from 'react';
+import { useAuth, useUser, SignOutButton } from '@clerk/clerk-react';
+import './ProfilePage.css';
 
 const statusStyles = {
-  PENDING: 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20',
-  CONFIRMED: 'bg-blue-500/10 text-blue-500 border border-blue-500/20',
-  PROCESSING: 'bg-purple-500/10 text-purple-500 border border-purple-500/20',
-  SHIPPED: 'bg-orange-500/10 text-orange-500 border border-orange-500/20',
-  DELIVERED: 'bg-green-500/10 text-green-500 border border-green-500/20',
-  CANCELLED: 'bg-red-500/10 text-red-500 border border-red-500/20',
+  PENDING: 'profile-status-pending',
+  CONFIRMED: 'profile-status-blue',
+  PROCESSING: 'profile-status-purple',
+  SHIPPED: 'profile-status-orange',
+  DELIVERED: 'profile-status-green',
+  CANCELLED: 'profile-status-red',
 };
 
 export default function ProfilePage() {
@@ -18,18 +19,12 @@ export default function ProfilePage() {
   const [addresses, setAddresses] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
-
-  // Edit profile form state
-  const [showEditProfile, setShowEditProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({
-    name: '',
-    phone: ''
-  });
+  const [activeSection, setActiveSection] = useState('dashboard');
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState('');
-
-  // Address form modal state
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState(null);
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -43,43 +38,24 @@ export default function ProfilePage() {
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressError, setAddressError] = useState('');
 
-  // Fetch all data
   const fetchData = async () => {
     try {
       setLoadingData(true);
       const token = await getToken();
       if (!token) return;
 
-      // 1. Fetch user profile from DB
-      const profileRes = await fetch('http://localhost:5000/api/user/profile', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const profileRes = await fetch('http://localhost:5000/api/user/profile', { headers: { Authorization: `Bearer ${token}` } });
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         setDbUser(profileData);
-        setProfileForm({
-          name: profileData.name || user?.fullName || '',
-          phone: profileData.phone || ''
-        });
+        setProfileForm({ name: profileData.name || user?.fullName || '', phone: profileData.phone || '' });
       }
 
-      // 2. Fetch addresses
-      const addrRes = await fetch('http://localhost:5000/api/addresses', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (addrRes.ok) {
-        const addrData = await addrRes.json();
-        setAddresses(addrData);
-      }
+      const addrRes = await fetch('http://localhost:5000/api/addresses', { headers: { Authorization: `Bearer ${token}` } });
+      if (addrRes.ok) setAddresses(await addrRes.json());
 
-      // 3. Fetch orders
-      const orderRes = await fetch('http://localhost:5000/api/orders', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (orderRes.ok) {
-        const orderData = await orderRes.json();
-        setOrders(orderData);
-      }
+      const orderRes = await fetch('http://localhost:5000/api/orders', { headers: { Authorization: `Bearer ${token}` } });
+      if (orderRes.ok) setOrders(await orderRes.json());
     } catch (err) {
       console.error('Error fetching profile data:', err);
     } finally {
@@ -88,82 +64,74 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
-    if (isSignedIn) {
-      fetchData();
-    } else {
-      setLoadingData(false);
-    }
+    if (isSignedIn) fetchData();
+    else setLoadingData(false);
   }, [isSignedIn]);
 
-  // Handle profile update submit
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     setProfileSuccess('');
     setSavingProfile(true);
-
     try {
       const token = await getToken();
       const res = await fetch('http://localhost:5000/api/user/profile', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(profileForm)
       });
-
       if (res.ok) {
         const updated = await res.json();
         setDbUser({ ...dbUser, name: updated.name, phone: updated.phone });
-        setProfileSuccess('Profile updated successfully!');
+        setProfileSuccess('Profile updated successfully.');
         setTimeout(() => {
-          setShowEditProfile(false);
           setProfileSuccess('');
-        }, 1500);
-      } else {
-        console.error('Failed to update profile');
+          setActiveSection('dashboard');
+        }, 1200);
       }
-    } catch (err) {
-      console.error(err);
     } finally {
       setSavingProfile(false);
     }
   };
 
-  // Handle address submit
+  const resetAddressForm = () => {
+    setFormData({
+      fullName: '',
+      phone: '',
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      isDefault: false
+    });
+  };
+
   const handleAddressSubmit = async (e) => {
     e.preventDefault();
     setAddressError('');
     setSavingAddress(true);
-
     try {
       const token = await getToken();
-      const res = await fetch('http://localhost:5000/api/addresses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+      const url = editingAddressId ? `http://localhost:5000/api/addresses/${editingAddressId}` : 'http://localhost:5000/api/addresses';
+      const method = editingAddressId ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(formData)
       });
-
       if (res.ok) {
-        const newAddr = await res.json();
-        setAddresses([newAddr, ...addresses.map(a => formData.isDefault ? { ...a, isDefault: false } : a)]);
+        const saved = await res.json();
+        const updatedAddresses = editingAddressId
+          ? addresses.map((a) => a.id === editingAddressId ? saved : (formData.isDefault ? { ...a, isDefault: false } : a))
+          : [saved, ...addresses.map((a) => formData.isDefault ? { ...a, isDefault: false } : a)];
+        updatedAddresses.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+        setAddresses(updatedAddresses);
         setShowAddressModal(false);
-        setFormData({
-          fullName: '',
-          phone: '',
-          addressLine1: '',
-          addressLine2: '',
-          city: '',
-          state: '',
-          postalCode: '',
-          isDefault: false
-        });
+        setEditingAddressId(null);
+        resetAddressForm();
       } else {
         const errData = await res.json();
-        setAddressError(errData.error || 'Failed to save address');
+        setAddressError(errData.error || 'Failed to save address.');
       }
     } catch (err) {
       console.error(err);
@@ -173,409 +141,342 @@ export default function ProfilePage() {
     }
   };
 
+  const handleEditAddressClick = (addr) => {
+    setEditingAddressId(addr.id);
+    setFormData({
+      fullName: addr.fullName,
+      phone: addr.phone,
+      addressLine1: addr.addressLine1,
+      addressLine2: addr.addressLine2 || '',
+      city: addr.city,
+      state: addr.state,
+      postalCode: addr.postalCode,
+      isDefault: addr.isDefault
+    });
+    setShowAddressModal(true);
+  };
+
+  const handleDeleteAddress = async (id) => {
+    if (!confirm('Are you sure you want to delete this address?')) return;
+    const token = await getToken();
+    const res = await fetch(`http://localhost:5000/api/addresses/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.ok) setAddresses(addresses.filter((a) => a.id !== id));
+  };
+
+  const handleSetDefaultAddress = async (id) => {
+    const token = await getToken();
+    const res = await fetch(`http://localhost:5000/api/addresses/${id}/default`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      const updatedAddresses = addresses.map((a) => a.id === id ? updated : { ...a, isDefault: false });
+      updatedAddresses.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+      setAddresses(updatedAddresses);
+    }
+  };
+
   if (!authLoaded || !userLoaded) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0a] text-[#f0ede8] flex items-center justify-center font-sans">
-        <div className="text-center">
-          <p className="text-[#E2C275] mb-2 font-serif text-xl tracking-wide animate-pulse">Loading Account...</p>
-          <p className="text-xs text-[#f0ede8]/50">Synchronizing with security portal.</p>
-        </div>
-      </div>
-    );
+    return <div className="profile-shell profile-loading">Loading Account...</div>;
   }
 
   if (!isSignedIn) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-[#f0ede8] flex items-center justify-center font-sans px-4">
-        <div className="max-w-md w-full text-center bg-[#141414] border border-[#E2C275]/20 p-8 rounded-2xl shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#E2C275] via-[#C8A855] to-[#E2C275]" />
-          <h2 className="font-serif text-2xl text-[#E2C275] tracking-wide mb-3 uppercase">My Account</h2>
-          <p className="text-sm text-[#f0ede8]/70 mb-6 leading-relaxed">
-            Please sign in to view your order history, shipping details, and saved addresses.
-          </p>
-          <SignInButton mode="modal">
-            <button className="w-full py-3 bg-[#E2C275] text-[#120E0D] font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-[#F4E7C5] transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-lg shadow-[#E2C275]/10 cursor-pointer">
-              Sign In / Sign Up
-            </button>
-          </SignInButton>
+      <div className="profile-shell profile-guest">
+        <div className="profile-card profile-guest-card">
+          <h2>My Account</h2>
+          <p>Please sign in to view your order history, shipping details, and saved addresses.</p>
+          <button onClick={() => window.location.reload()} className="profile-primary-btn">Authenticate Session</button>
         </div>
       </div>
     );
   }
 
-  const memberSince = new Date(user.createdAt).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-  });
-
-  const displayName = dbUser?.name || user.fullName || 'Fragrance Collector';
+  const displayName = dbUser?.name || user.fullName || 'Collector';
   const displayPhone = dbUser?.phone || (user.primaryPhoneNumber ? user.primaryPhoneNumber.phoneNumber : 'No phone linked');
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#f0ede8] font-sans selection:bg-[#E2C275]/30 selection:text-white py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto space-y-10">
-        
-        {/* Section 1: Profile Header */}
-        <header className="bg-[#141414] border border-[#E2C275]/15 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-8 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-radial-gradient(circle,rgba(226,194,117,0.04)_0%,transparent_70%) rounded-full blur-3xl pointer-events-none" />
-          
-          {/* Avatar */}
-          <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-[#E2C275]/30 shadow-lg flex-shrink-0">
-            {user.imageUrl ? (
-              <img
-                src={user.imageUrl}
-                alt={displayName}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full bg-[#1e1e1e] flex items-center justify-center text-[#E2C275] font-serif text-3xl font-bold">
-                {user.firstName?.charAt(0).toUpperCase() || 'U'}
-              </div>
-            )}
-          </div>
+    <div className="profile-page-shell selection:bg-[#c5a059]/20">
+      <header className="profile-topbar">
+        <div className="profile-topbar-inner">
+          <button
+            onClick={() => {
+              if (activeSection !== 'dashboard') setActiveSection('dashboard');
+              else window.location.hash = 'shop';
+            }}
+            className="profile-back-btn"
+          >
+            <span aria-hidden="true">←</span>
+            <span>{activeSection !== 'dashboard' ? 'Back to account' : 'Back to main page'}</span>
+          </button>
 
-          {/* User Info */}
-          <div className="text-center sm:text-left space-y-2 flex-grow">
-            <h1 className="font-serif text-3xl sm:text-4xl font-semibold tracking-wide text-white">
-              {displayName}
-            </h1>
-            <p className="text-sm text-[#f0ede8]/70 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 justify-center sm:justify-start">
-              <span>{user.primaryEmailAddress?.emailAddress}</span>
-              <span className="hidden sm:inline text-[#E2C275]/30">•</span>
-              <span>{displayPhone}</span>
-            </p>
-            <div className="pt-2 flex flex-wrap gap-3 items-center justify-center sm:justify-start">
-              <span className="text-[0.65rem] font-bold uppercase tracking-widest text-[#f0ede8]/50 bg-white/5 border border-white/10 px-2.5 py-1 rounded-full">
-                Member Since {memberSince}
-              </span>
-              {dbUser?.role === 'ADMIN' ? (
-                <button 
-                  onClick={() => { window.location.hash = 'admin'; }}
-                  className="text-[0.65rem] font-bold uppercase tracking-widest text-[#0a0a0a] bg-[#E2C275] hover:bg-[#F4E7C5] px-3 py-1 rounded-full border-none cursor-pointer transition-colors"
-                >
-                  Admin Console ⚙️
-                </button>
-              ) : (
-                <span className="text-[0.65rem] font-bold uppercase tracking-widest text-[#E2C275] bg-[#E2C275]/10 border border-[#E2C275]/20 px-2.5 py-1 rounded-full">
-                  Collector Account
-                </span>
-              )}
-              <button 
-                onClick={() => setShowEditProfile(!showEditProfile)}
-                className="text-[0.65rem] font-bold uppercase tracking-widest text-[#E2C275] hover:text-[#F4E7C5] bg-transparent border border-[#E2C275]/20 px-2.5 py-1 rounded-full cursor-pointer transition-colors"
-              >
-                Edit Info
-              </button>
-              <SignOutButton redirectUrl="/">
-                <button className="text-[0.65rem] font-bold uppercase tracking-widest text-red-400 hover:text-red-300 bg-transparent border border-red-500/20 px-2.5 py-1 rounded-full cursor-pointer transition-colors">
-                  Sign Out
-                </button>
-              </SignOutButton>
-            </div>
-          </div>
-        </header>
+          <span className="profile-brand">Decant Atelier</span>
 
-        {/* Optional Edit Profile Form Panel */}
-        {showEditProfile && (
-          <div className="bg-[#141414] border border-[#E2C275]/20 rounded-2xl p-6 shadow-xl max-w-md mx-auto">
-            <h3 className="font-serif text-lg font-bold text-[#E2C275] mb-4 uppercase">Update Profile Details</h3>
-            {profileSuccess && (
-              <p className="bg-green-500/10 border border-green-500/20 text-green-400 text-xs p-2.5 rounded-lg mb-4 text-center">
-                {profileSuccess}
-              </p>
-            )}
-            <form onSubmit={handleProfileSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-[0.65rem] font-bold uppercase tracking-wider text-[#E2C275] mb-1">Display Name</label>
-                <input 
-                  type="text" 
-                  required
-                  className="w-full bg-black/40 border border-[#E2C275]/15 rounded-lg p-2.5 text-[#f0ede8] focus:border-[#E2C275] focus:outline-none"
-                  value={profileForm.name}
-                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-[0.65rem] font-bold uppercase tracking-wider text-[#E2C275] mb-1">Phone Number</label>
-                <input 
-                  type="text" 
-                  className="w-full bg-black/40 border border-[#E2C275]/15 rounded-lg p-2.5 text-[#f0ede8] focus:border-[#E2C275] focus:outline-none"
-                  value={profileForm.phone}
-                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={savingProfile}
-                  className="flex-grow py-2.5 bg-[#E2C275] text-[#120E0D] font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-[#F4E7C5] transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {savingProfile ? 'Saving...' : 'Save Info'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowEditProfile(false)}
-                  className="py-2.5 px-4 bg-transparent border border-white/10 text-[#f0ede8]/70 hover:text-white text-xs uppercase tracking-widest rounded-lg cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+          <SignOutButton redirectUrl="/">
+            <button className="profile-signout-btn" aria-label="Sign out">Sign out</button>
+          </SignOutButton>
+        </div>
+      </header>
 
+      <main className="profile-main">
         {loadingData ? (
-          <div className="text-center py-12">
-            <p className="text-sm text-[#f0ede8]/50 animate-pulse">Loading saved data...</p>
-          </div>
+          <div className="profile-loading-state">Loading secure profile data...</div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-8 items-start">
-
-            {/* Section 2: Saved Addresses */}
-            <section className="bg-[#141414] border border-[#E2C275]/15 rounded-2xl p-6 shadow-2xl flex flex-col gap-6">
-              <div className="border-b border-[#E2C275]/15 pb-3 flex justify-between items-center">
-                <h2 className="font-serif text-lg font-bold tracking-wide text-white uppercase">
-                  Saved Addresses
-                </h2>
-                <button 
-                  onClick={() => setShowAddressModal(true)}
-                  className="text-[0.68rem] font-bold tracking-wider uppercase text-[#E2C275] hover:text-[#F4E7C5] transition-colors cursor-pointer bg-transparent border-none"
-                >
-                  + Add New
-                </button>
-              </div>
-
-              {addresses.length === 0 ? (
-                <div className="text-center py-8 px-4 border border-dashed border-[#f0ede8]/10 rounded-xl">
-                  <p className="text-sm text-[#f0ede8]/40 mb-1">No addresses saved yet.</p>
-                  <p className="text-[0.68rem] text-[#E2C275]/60">Save address to speed up checkout.</p>
-                </div>
-              ) : (
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
-                  {addresses.map((addr) => (
-                    <div
-                      key={addr.id}
-                      className={`p-4 rounded-xl border transition-all duration-300 ${
-                        addr.isDefault
-                          ? 'bg-[#E2C275]/[0.02] border-[#E2C275]/40 shadow-md'
-                          : 'bg-black/20 border-white/5 hover:border-[#E2C275]/20'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-xs font-bold text-white uppercase tracking-wider">
-                          {addr.fullName}
-                        </span>
-                        {addr.isDefault && (
-                          <span className="text-[0.55rem] font-bold tracking-widest uppercase bg-[#E2C275]/15 text-[#E2C275] border border-[#E2C275]/20 px-2 py-0.5 rounded-md">
-                            Default
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-[#f0ede8]/70 leading-relaxed font-light">
-                        {addr.addressLine1}
-                        {addr.addressLine2 && `, ${addr.addressLine2}`}
-                        <br />
-                        {addr.city}, {addr.state} - {addr.postalCode}
-                        <br />
-                        <span className="text-[#E2C275]/70 font-medium">India</span>
-                      </p>
-                      <p className="text-[0.68rem] text-[#f0ede8]/50 mt-2 flex items-center gap-1 font-mono">
-                        📞 {addr.phone}
-                      </p>
+          <>
+            {activeSection === 'dashboard' && (
+              <div className="profile-layout-stack">
+                <section className="profile-hero-card">
+                  <div className="profile-hero-main">
+                    <div className="profile-avatar">{displayName.charAt(0).toUpperCase()}</div>
+                    <div className="profile-hero-copy">
+                      <h2>{displayName}</h2>
+                      <p>{user.primaryEmailAddress?.emailAddress} • {displayPhone}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </section>
+                  </div>
+                  <div className="profile-hero-actions">
+                    <button onClick={() => setActiveSection('settings')} className="profile-secondary-btn">Edit Profile</button>
+                    {dbUser?.role === 'ADMIN' && (
+                      <button onClick={() => { window.location.hash = 'admin'; }} className="profile-primary-btn">Admin Console</button>
+                    )}
+                  </div>
+                </section>
 
-            {/* Section 3: Recent Orders */}
-            <section className="bg-[#141414] border border-[#E2C275]/15 rounded-2xl p-6 shadow-2xl flex flex-col gap-6">
-              <div className="border-b border-[#E2C275]/15 pb-3">
-                <h2 className="font-serif text-lg font-bold tracking-wide text-white uppercase">
-                  Recent Orders
-                </h2>
+                <div className="profile-dashboard-grid">
+                  <button className="profile-dashboard-card" onClick={() => setActiveSection('orders')}>
+                    <div className="profile-card-top">
+                      <div className="profile-card-icon">Orders</div>
+                      <h3 className="profile-card-title">Your Orders</h3>
+                      <p className="profile-card-desc">Track, return, or buy items again</p>
+                    </div>
+                    <span className="profile-card-meta">{orders.length} orders placed</span>
+                  </button>
+                  <button className="profile-dashboard-card" onClick={() => setActiveSection('addresses')}>
+                    <div className="profile-card-top">
+                      <div className="profile-card-icon">Address</div>
+                      <h3 className="profile-card-title">Addresses</h3>
+                      <p className="profile-card-desc">Edit, add, or set default delivery addresses</p>
+                    </div>
+                    <span className="profile-card-meta">{addresses.length} saved addresses</span>
+                  </button>
+                  <button className="profile-dashboard-card" onClick={() => setActiveSection('settings')}>
+                    <div className="profile-card-top">
+                      <div className="profile-card-icon">Security</div>
+                      <h3 className="profile-card-title">Login & Security</h3>
+                      <p className="profile-card-desc">Update your display name, contact phone, or credentials</p>
+                    </div>
+                    <span className="profile-card-meta">Edit credentials</span>
+                  </button>
+                </div>
+
+                {orders.length > 0 && (
+                  <section className="profile-summary-card">
+                    <div className="profile-section-title">
+                      <span>Latest Purchase</span>
+                      <button onClick={() => setActiveSection('orders')} className="profile-link-btn">View all orders</button>
+                    </div>
+                    <div className="profile-summary-row">
+                      <div className="profile-summary-block">
+                        <div className="profile-kicker">Order #{orders[0].id.slice(-8).toUpperCase()}</div>
+                        <div className="profile-summary-value">
+                          Placed on {new Date(orders[0].createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        </div>
+                        <span className={`profile-status-pill ${statusStyles[orders[0].status] || 'profile-status-neutral'}`}>
+                          {orders[0].status}
+                        </span>
+                      </div>
+                      <div className="profile-summary-block profile-summary-right">
+                        <span className="profile-kicker">Total Amount</span>
+                        <span className="profile-summary-total">₹{Number(orders[0].total).toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+                  </section>
+                )}
               </div>
+            )}
 
-              {orders.length === 0 ? (
-                <div className="text-center py-12 px-4 border border-dashed border-[#f0ede8]/10 rounded-xl">
-                  <p className="text-sm text-[#f0ede8]/40 mb-1">No orders found.</p>
-                  <p className="text-[0.68rem] text-[#E2C275]/60">Explore our signature catalog to make your first purchase.</p>
+            {activeSection === 'orders' && (
+              <div className="profile-section-stack">
+                <div className="profile-section-heading">
+                  <span>Your Orders</span>
+                  <button onClick={() => setActiveSection('dashboard')} className="profile-link-btn">Back to Account Dashboard</button>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-[#E2C275]/15 text-[#E2C275]/70 font-semibold uppercase tracking-wider text-[0.6rem]">
-                        <th className="py-3 px-2">Order ID</th>
-                        <th className="py-3 px-2">Date</th>
-                        <th className="py-3 px-2 text-center">Status</th>
-                        <th className="py-3 px-2 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {orders.map((order) => {
-                        const orderDate = new Date(order.createdAt).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        });
-                        const totalFormatted = Number(order.total).toLocaleString('en-IN', {
-                          style: 'currency',
-                          currency: 'INR',
-                          maximumFractionDigits: 2,
-                        });
+                {orders.length === 0 ? (
+                  <div className="profile-empty-card">
+                    <p>You haven't ordered any premium decants yet.</p>
+                    <button onClick={() => { window.location.hash = 'shop'; }} className="profile-primary-btn">Shop Fragrance Catalog</button>
+                  </div>
+                ) : (
+                  <div className="profile-list">
+                    {orders.map((order) => (
+                      <article key={order.id} className="profile-record-card">
+                        <div className="profile-record-head">
+                          <div>
+                            <div className="profile-kicker">Order placed</div>
+                            <div className="profile-summary-value">{new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                          </div>
+                          <div>
+                            <div className="profile-kicker">Total</div>
+                            <div className="profile-summary-value">₹{Number(order.total).toLocaleString('en-IN')}</div>
+                          </div>
+                          <div>
+                            <div className="profile-kicker">Ship to</div>
+                            <div className="profile-summary-value">{order.address?.fullName || displayName}</div>
+                          </div>
+                        </div>
+                        <div className="profile-record-body">
+                          <div className={`profile-status-pill ${statusStyles[order.status] || 'profile-status-neutral'}`}>{order.status}</div>
+                          {order.orderItems?.map((item) => (
+                            <div key={item.id} className="profile-order-row">
+                              <div>
+                                <div className="profile-record-name">{item.productName}</div>
+                                <div className="profile-record-meta">Size: {item.size} | Qty: {item.quantity}</div>
+                              </div>
+                              <div>₹{Number(item.priceAtPurchase).toLocaleString('en-IN')}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-                        return (
-                          <tr key={order.id} className="hover:bg-white/[0.01] transition-colors">
-                            <td className="py-3.5 px-2 font-mono text-white tracking-wide">
-                              #{order.id.slice(-8).toUpperCase()}
-                            </td>
-                            <td className="py-3.5 px-2 text-[#f0ede8]/70">
-                              {orderDate}
-                            </td>
-                            <td className="py-3.5 px-2 text-center">
-                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[0.55rem] font-bold uppercase tracking-widest ${
-                                statusStyles[order.status] || 'bg-white/10 text-white border border-white/20'
-                              }`}>
-                                {order.status}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-2 text-right font-semibold text-white font-mono">
-                              {totalFormatted}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            {activeSection === 'addresses' && (
+              <div className="profile-section-stack">
+                <div className="profile-section-heading">
+                  <span>Your Addresses</span>
+                  <button onClick={() => { setEditingAddressId(null); resetAddressForm(); setShowAddressModal(true); }} className="profile-link-btn">Add New Address</button>
                 </div>
-              )}
-            </section>
+                {addresses.length === 0 ? (
+                  <div className="profile-empty-card">
+                    <p>No shipping addresses saved yet.</p>
+                    <button onClick={() => { setEditingAddressId(null); resetAddressForm(); setShowAddressModal(true); }} className="profile-primary-btn">Add Delivery Address</button>
+                  </div>
+                ) : (
+                  <div className="profile-address-grid">
+                    {addresses.map((addr) => (
+                      <article key={addr.id} className={`profile-address-card ${addr.isDefault ? 'is-default' : ''}`}>
+                        <div className="profile-address-top">
+                          <div className="profile-address-name">{addr.fullName}</div>
+                          {addr.isDefault && <span className="profile-default-badge">Default</span>}
+                        </div>
+                        <p className="profile-address-text">
+                          {addr.addressLine1}
+                          {addr.addressLine2 && `, ${addr.addressLine2}`}
+                          <br />
+                          {addr.city}, {addr.state} - {addr.postalCode}
+                          <br />
+                          India
+                        </p>
+                        <p className="profile-address-phone">{addr.phone}</p>
+                        <div className="profile-address-actions">
+                          <button onClick={() => handleEditAddressClick(addr)} className="profile-link-btn">Edit</button>
+                          <button onClick={() => handleDeleteAddress(addr.id)} className="profile-link-btn">Delete</button>
+                          {!addr.isDefault && <button onClick={() => handleSetDefaultAddress(addr.id)} className="profile-link-btn">Set Default</button>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-          </div>
+            {activeSection === 'settings' && (
+              <div className="profile-section-stack profile-settings-stack">
+                <div className="profile-section-heading">
+                  <span>Profile Settings</span>
+                  <button onClick={() => setActiveSection('dashboard')} className="profile-link-btn">Dashboard</button>
+                </div>
+                <section className="profile-form-card">
+                  {profileSuccess && <p className="profile-success-banner">{profileSuccess}</p>}
+                  <form onSubmit={handleProfileSubmit} className="profile-form">
+                    <div>
+                      <label className="profile-label">Display Name</label>
+                      <input className="profile-input" type="text" required value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="profile-label">Contact Phone Number</label>
+                      <input className="profile-input" type="text" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} />
+                    </div>
+                    <div className="profile-form-actions">
+                      <button type="submit" disabled={savingProfile} className="profile-primary-btn">{savingProfile ? 'Saving Details...' : 'Save Profile'}</button>
+                      <button type="button" onClick={() => setActiveSection('dashboard')} className="profile-secondary-btn">Cancel</button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+            )}
+          </>
         )}
+      </main>
 
-      </div>
-
-      {/* Address Modal Dialog Overlay */}
       {showAddressModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#141414] border border-[#E2C275]/30 rounded-2xl w-full max-w-md p-6 relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#E2C275] via-[#C8A855] to-[#E2C275]" />
-            <div className="flex justify-between items-center mb-5 pb-2 border-b border-[#E2C275]/10">
-              <h3 className="font-serif text-lg font-bold text-[#E2C275] uppercase">Add New Address</h3>
-              <button 
-                onClick={() => setShowAddressModal(false)}
-                className="text-[#f0ede8]/50 hover:text-white transition-colors text-lg font-bold cursor-pointer bg-transparent border-none"
+        <div className="profile-modal-backdrop">
+          <div className="profile-modal-card">
+            <div className="profile-modal-accent" />
+            <div className="profile-modal-head">
+              <h3 className="profile-modal-title">{editingAddressId ? 'Edit Address' : 'Add New Address'}</h3>
+              <button
+                onClick={() => {
+                  setShowAddressModal(false);
+                  setEditingAddressId(null);
+                }}
+                className="profile-modal-close"
               >
                 &times;
               </button>
             </div>
 
-            {addressError && (
-              <p className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-2.5 rounded-lg mb-4 text-center">
-                {addressError}
-              </p>
-            )}
+            {addressError && <p className="profile-error-banner">{addressError}</p>}
 
-            <form onSubmit={handleAddressSubmit} className="space-y-4 text-xs font-sans">
+            <form onSubmit={handleAddressSubmit} className="profile-form">
               <div>
-                <label className="block text-[0.65rem] font-bold uppercase tracking-wider text-[#E2C275] mb-1">Full Name</label>
-                <input 
-                  type="text" 
-                  required
-                  className="w-full bg-black/40 border border-[#E2C275]/15 rounded-lg p-2.5 text-[#f0ede8] focus:border-[#E2C275] focus:outline-none"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                />
+                <label className="profile-label">Full Name</label>
+                <input className="profile-input" type="text" required value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="profile-grid-2">
                 <div>
-                  <label className="block text-[0.65rem] font-bold uppercase tracking-wider text-[#E2C275] mb-1">Phone Number</label>
-                  <input 
-                    type="text" 
-                    required
-                    className="w-full bg-black/40 border border-[#E2C275]/15 rounded-lg p-2.5 text-[#f0ede8] focus:border-[#E2C275] focus:outline-none"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  />
+                  <label className="profile-label">Phone Number</label>
+                  <input className="profile-input" type="text" required value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-[0.65rem] font-bold uppercase tracking-wider text-[#E2C275] mb-1">Postal Code</label>
-                  <input 
-                    type="text" 
-                    required
-                    className="w-full bg-black/40 border border-[#E2C275]/15 rounded-lg p-2.5 text-[#f0ede8] focus:border-[#E2C275] focus:outline-none"
-                    value={formData.postalCode}
-                    onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                  />
+                  <label className="profile-label">Postal Code</label>
+                  <input className="profile-input" type="text" required value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} />
                 </div>
               </div>
-
               <div>
-                <label className="block text-[0.65rem] font-bold uppercase tracking-wider text-[#E2C275] mb-1">Address Line 1</label>
-                <input 
-                  type="text" 
-                  required
-                  className="w-full bg-black/40 border border-[#E2C275]/15 rounded-lg p-2.5 text-[#f0ede8] focus:border-[#E2C275] focus:outline-none"
-                  value={formData.addressLine1}
-                  onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
-                />
+                <label className="profile-label">Address Line 1</label>
+                <input className="profile-input" type="text" required value={formData.addressLine1} onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })} />
               </div>
-
               <div>
-                <label className="block text-[0.65rem] font-bold uppercase tracking-wider text-[#E2C275] mb-1">Address Line 2 (Optional)</label>
-                <input 
-                  type="text" 
-                  className="w-full bg-black/40 border border-[#E2C275]/15 rounded-lg p-2.5 text-[#f0ede8] focus:border-[#E2C275] focus:outline-none"
-                  value={formData.addressLine2}
-                  onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
-                />
+                <label className="profile-label">Address Line 2 (Optional)</label>
+                <input className="profile-input" type="text" value={formData.addressLine2} onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })} />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="profile-grid-2">
                 <div>
-                  <label className="block text-[0.65rem] font-bold uppercase tracking-wider text-[#E2C275] mb-1">City</label>
-                  <input 
-                    type="text" 
-                    required
-                    className="w-full bg-black/40 border border-[#E2C275]/15 rounded-lg p-2.5 text-[#f0ede8] focus:border-[#E2C275] focus:outline-none"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  />
+                  <label className="profile-label">City</label>
+                  <input className="profile-input" type="text" required value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-[0.65rem] font-bold uppercase tracking-wider text-[#E2C275] mb-1">State</label>
-                  <input 
-                    type="text" 
-                    required
-                    className="w-full bg-black/40 border border-[#E2C275]/15 rounded-lg p-2.5 text-[#f0ede8] focus:border-[#E2C275] focus:outline-none"
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  />
+                  <label className="profile-label">State</label>
+                  <input className="profile-input" type="text" required value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })} />
                 </div>
               </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <input 
-                  type="checkbox" 
-                  id="defaultAddressCheckbox"
-                  className="accent-[#E2C275] scale-110 cursor-pointer"
+              <label className="profile-check-row">
+                <input
+                  type="checkbox"
                   checked={formData.isDefault}
                   onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
                 />
-                <label htmlFor="defaultAddressCheckbox" className="text-[0.68rem] text-[#f0ede8]/80 cursor-pointer">
-                  Set as default shipping address
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                disabled={savingAddress}
-                className="w-full mt-4 py-3 bg-[#E2C275] text-[#120E0D] font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-[#F4E7C5] transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {savingAddress ? 'Saving...' : 'Save Address'}
+                <span>Set as default shipping address</span>
+              </label>
+              <button type="submit" disabled={savingAddress} className="profile-primary-btn profile-full-btn">
+                {savingAddress ? 'Saving Destination...' : 'Save Address'}
               </button>
             </form>
           </div>

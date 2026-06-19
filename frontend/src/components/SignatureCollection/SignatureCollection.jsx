@@ -77,7 +77,14 @@ const ShieldCheckIcon = ({ className }) => (
   </svg>
 );
 
-export default function SignatureCollection({ activeCategory = 'all', onSelectCategory, products = [] }) {
+export default function SignatureCollection({
+  activeCategory = 'all',
+  onSelectCategory,
+  products = [],
+  collections = [],
+  collectionsLoading = false,
+  collectionsError = ''
+}) {
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,6 +121,10 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
   const [localCategory, setLocalCategory] = useState('all');
   const currentCategory = onSelectCategory ? activeCategory : localCategory;
   const setCategory = onSelectCategory ? onSelectCategory : setLocalCategory;
+  const activeCollection = useMemo(
+    () => collections.find(collection => collection.slug === currentCategory),
+    [collections, currentCategory]
+  );
 
   const handleProductClick = (id) => {
     window.location.hash = `product-${id}`;
@@ -146,8 +157,15 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
   const filteredAndSortedItems = useMemo(() => {
     let items = products.length > 0 ? [...products] : [...collectionsData];
 
+    if (activeCollection) {
+      const assignedProducts = activeCollection.products || [];
+      items = assignedProducts.map(assignedProduct => (
+        items.find(item => item.id === assignedProduct.id || item.slug === assignedProduct.slug) || assignedProduct
+      ));
+    }
+
     // 1. Filter by category
-    if (currentCategory !== 'all') {
+    if (currentCategory !== 'all' && !activeCollection) {
       if (currentCategory === 'decants') {
         items = items.filter(item => item.category === 'decants');
       } else if (currentCategory === 'fullbottles') {
@@ -191,7 +209,7 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
     }
 
     return items;
-  }, [currentCategory, searchQuery, sortBy]);
+  }, [activeCollection, currentCategory, products, searchQuery, sortBy]);
 
   // Open & Close Concierge drawer
   const openQuickView = (item) => {
@@ -244,7 +262,11 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
       <div className="max-w-[1440px] mx-auto px-[clamp(1.5rem,4vw,3.5rem)] relative z-10">
         {/* Category Banner or normal breadcrumbs */}
         {(() => {
-          const activeBanner = categoryBanners[currentCategory];
+          const activeBanner = activeCollection ? {
+            title: activeCollection.name,
+            desc: activeCollection.description,
+            image: activeCollection.imageUrl
+          } : categoryBanners[currentCategory];
           if (activeBanner) {
             return (
               <div 
@@ -302,7 +324,7 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
         })()}
 
         {/* Title Row */}
-        {!categoryBanners[currentCategory] && (
+        {!categoryBanners[currentCategory] && !activeCollection && (
           <div className="mb-8 text-left">
             <h2 className="font-heading text-3xl lg:text-4xl font-light text-[#1C1B18] tracking-wide">
               Fragrance Collection
@@ -381,7 +403,11 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
         </div>
 
         {/* Dynamic Products Grid */}
-        {filteredAndSortedItems.length > 0 ? (
+        {collectionsLoading && currentCategory !== 'all' ? (
+          <div className="py-20 text-center text-black/50">Loading this collection...</div>
+        ) : collectionsError && currentCategory !== 'all' ? (
+          <div className="py-20 text-center text-red-700">{collectionsError}</div>
+        ) : filteredAndSortedItems.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {filteredAndSortedItems.map((item) => (
               <div

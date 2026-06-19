@@ -190,26 +190,38 @@ export default function CartPage({ onBackToShop }) {
 
   if (orderPlacedSuccess) {
     return (
-      <div className="cart-empty-container font-body py-24 select-none">
-        <div className="cart-empty-content max-w-md bg-white border border-[#B08A50]/20 p-8 rounded-2xl shadow-xl text-center">
-          <div className="text-5xl text-[#B08A50] mb-4">✦</div>
-          <h2 className="cart-empty-title font-heading text-2xl mb-2 text-[#1C1B18]">Order Placed Successfully!</h2>
-          <p className="cart-empty-text text-sm text-[#1C1B18]/70 mb-6 leading-relaxed">
-            Thank you for your purchase. Your olfactory journey is being prepared at our atelier.
-          </p>
-          <div className="space-y-3">
-            <button 
-              onClick={() => { window.location.hash = 'profile'; }} 
-              className="w-full py-3 bg-[#1C1B18] text-white font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-[#B08A50] transition-colors cursor-pointer"
-            >
-              View Order History
+      <div className="standalone-page-container selection:bg-[#c5a059]/20 min-h-screen font-body select-none">
+        <header className="standalone-header">
+          <div className="standalone-header-inner">
+            <button onClick={handleBackToShop} className="standalone-back-btn">
+              ← Continue Shopping
             </button>
-            <button 
-              onClick={handleBackToShop} 
-              className="w-full py-3 bg-transparent border border-[#1C1B18]/20 text-[#1C1B18] font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-[#1C1B18]/5 transition-colors cursor-pointer"
-            >
-              Continue Shopping
-            </button>
+            <span className="standalone-logo">Decant Atelier</span>
+            <div style={{ width: '80px' }} />
+          </div>
+        </header>
+
+        <div className="flex items-center justify-center py-20 px-4">
+          <div className="max-w-md w-full bg-white border border-[#c5a059]/20 p-8 text-center shadow-md">
+            <div className="text-5xl text-[#c5a059] mb-4">✦</div>
+            <h2 className="font-serif text-2xl mb-2 text-[#1c1b18] uppercase">Order Confirmed</h2>
+            <p className="text-sm text-[#6e6b64] mb-6 leading-relaxed">
+              Thank you for your purchase. Your olfactory journey is being prepared at our atelier.
+            </p>
+            <div className="space-y-3">
+              <button 
+                onClick={() => { window.location.hash = 'profile'; }} 
+                className="w-full py-3 bg-[#1c1b18] text-white font-bold text-xs uppercase tracking-widest rounded hover:bg-[#c5a059] transition-colors cursor-pointer"
+              >
+                View Order History
+              </button>
+              <button 
+                onClick={handleBackToShop} 
+                className="w-full py-3 bg-transparent border border-[#1c1b18]/20 text-[#1c1b18] font-bold text-xs uppercase tracking-widest rounded hover:bg-[#1c1b18]/5 transition-colors cursor-pointer"
+              >
+                Continue Shopping
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -218,35 +230,52 @@ export default function CartPage({ onBackToShop }) {
 
   if (cartItems.length === 0) {
     return (
-      <div className="cart-empty-container font-body select-none">
-        <div className="cart-empty-content">
-          <div className="cart-empty-icon-wrapper">
-            <svg className="cart-empty-icon" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-            </svg>
+      <div className="standalone-page-container selection:bg-[#c5a059]/20 min-h-screen font-body select-none">
+        <header className="standalone-header">
+          <div className="standalone-header-inner">
+            <button onClick={handleBackToShop} className="standalone-back-btn">
+              ← Continue Shopping
+            </button>
+            <span className="standalone-logo">Decant Atelier</span>
+            <div style={{ width: '80px' }} />
           </div>
-          <h2 className="cart-empty-title font-heading">Your Shopping Bag is Empty</h2>
-          <p className="cart-empty-text">Looks like you haven't added any premium fragrances to your collection yet.</p>
-          <button onClick={handleBackToShop} className="cart-empty-btn uppercase tracking-wider font-bold">
-            Shop Our Collection
-          </button>
+        </header>
+
+        <div className="flex items-center justify-center py-24 px-4">
+          <div className="max-w-md w-full text-center">
+            <div className="text-5xl text-[#c5a059] mb-4">🛒</div>
+            <h2 className="font-serif text-2xl mb-2 text-[#1c1b18] uppercase">Your Shopping Bag is Empty</h2>
+            <p className="text-sm text-[#6e6b64] mb-6 leading-relaxed">
+              Looks like you haven't added any premium fragrances to your collection yet.
+            </p>
+            <button 
+              onClick={handleBackToShop} 
+              className="py-3 px-6 bg-[#1c1b18] text-white font-bold text-xs uppercase tracking-widest rounded hover:bg-[#c5a059] transition-colors cursor-pointer"
+            >
+              Shop Our Collection
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="cart-page-wrapper bg-[#F7F3ED] min-h-screen py-16 font-body select-none">
-      <div className="max-w-[1440px] mx-auto px-[clamp(1.5rem,4vw,3.5rem)]">
-        
-        {/* Breadcrumb */}
-        <div className="text-[0.6rem] font-bold tracking-[3px] text-[#B08A50] uppercase mb-8">
-          <span className="cursor-pointer text-[#B08A50]/60 hover:text-[#1C1B18] transition-colors" onClick={handleBackToShop}>HOME</span>
-          <span className="mx-2 text-[#B08A50]/40">&gt;</span>
-          <span className="text-[#1C1B18]">YOUR SHOPPING BAG</span>
+    <div className="standalone-page-container selection:bg-[#c5a059]/20 min-h-screen font-body select-none">
+      
+      {/* Standalone Header */}
+      <header className="standalone-header mb-8">
+        <div className="standalone-header-inner">
+          <button onClick={handleBackToShop} className="standalone-back-btn">
+            ← Continue Shopping
+          </button>
+          <span className="standalone-logo">Decant Atelier</span>
+          <div style={{ width: '80px' }} /> {/* balanced spacing spacer */}
         </div>
+      </header>
 
-        <h1 className="cart-page-title font-heading mb-12 text-3xl sm:text-4xl font-light text-[#1C1B18] tracking-wide">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 pb-16">
+        <h1 className="cart-page-title font-heading mb-8 text-3xl font-light text-[#1C1B18] tracking-wide">
           {isCheckingOut ? 'Secure Checkout' : 'Your Shopping Bag'}
         </h1>
 

@@ -146,6 +146,38 @@
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); /* Strong text shadow for visibility */
 }
 
+.category-card-eyebrow {
+  color: #d6b879;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  margin-bottom: 0.45rem;
+  text-transform: uppercase;
+}
+
+.categories-state {
+  align-items: center;
+  color: #6b6258;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  justify-content: center;
+  min-height: 240px;
+  text-align: center;
+}
+
+.categories-state button {
+  background: #b08a50;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  padding: 0.7rem 1.4rem;
+}
+
+.categories-error {
+  color: #a33a3a;
+}
+
 .category-card-desc {
   font-family: var(--font-body, sans-serif);
   font-size: 0.72rem;
