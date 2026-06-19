@@ -370,25 +370,29 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
 
         {/* Dynamic Products Grid */}
         {filteredAndSortedItems.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {filteredAndSortedItems.map((item) => (
               <div
                 key={item.id}
                 onClick={() => handleProductClick(item.id)}
                 className="
-                  group h-full flex flex-col bg-[#FEFCF9] rounded-3xl
-                  border border-black/6 shadow-sm hover:shadow-md
-                  transition-all duration-500 ease-out hover:-translate-y-1 overflow-hidden cursor-pointer
+                  group h-full flex flex-col bg-white rounded-3xl
+                  border border-black/6 shadow-sm hover:shadow-2xl
+                  transition-all duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.03] overflow-hidden cursor-pointer
                 "
               >
                 {/* Product Image and Badges */}
-                <div className="relative aspect-square overflow-hidden bg-[#F7F3ED]/30 border-b border-black/5">
+                <div className="relative aspect-[4/5] overflow-hidden bg-[#F7F3ED]/30 border-b border-black/5">
                   <img
                     src={item.image}
                     alt={item.name}
                     loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    decoding="async"
+                    className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-110"
                   />
+
+                  {/* Premium gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent pointer-events-none" />
 
                   {/* Overlays Badges */}
                   <div className="absolute top-3 left-3 right-3 z-10 flex flex-col gap-1 pointer-events-none items-start">
