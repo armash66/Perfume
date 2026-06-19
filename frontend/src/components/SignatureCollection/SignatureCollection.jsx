@@ -43,6 +43,16 @@ const categoryBanners = {
     title: 'For Him',
     desc: 'Discover bold, charismatic, and refined masculine scents. From fresh, energetic everyday profiles to rich, magnetic evening colognes.',
     image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80'
+  },
+  newarrivals: {
+    title: 'New Arrivals',
+    desc: 'Explore the newest additions to our collection. Freshly curated fragrances and decants from the worlds most prestigious design houses.',
+    image: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=1200&q=80'
+  },
+  bestsellers: {
+    title: 'Best Sellers',
+    desc: 'Discover our most sought-after fragrances. Highly requested by perfume connoisseurs, these are our top-performing decants.',
+    image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=1200&q=80'
   }
 };
 
@@ -146,6 +156,8 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
         items = items.filter(item => item.category === 'sets');
       } else if (currentCategory === 'newarrivals') {
         items = items.filter(item => item.tags && item.tags.includes('new-arrival'));
+      } else if (currentCategory === 'bestsellers') {
+        items = items.filter(item => item.unitsSold > 0 || (item.tags && item.tags.includes('featured')));
       } else {
         // Tag filters (summer, winter, him, her, etc.)
         items = items.filter(item => item.tags && item.tags.includes(currentCategory));

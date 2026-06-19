@@ -41,10 +41,8 @@ const shopMenuItems = [
   { id: 'all', label: 'Shop All', filter: 'all' },
   { id: 'decants', label: 'Decants', filter: 'decants' },
   { id: 'fullbottles', label: 'Full Bottles', filter: 'fullbottles' },
-  { id: 'divider-1', isDivider: true },
-  { id: 'brands', label: 'Brands', filter: 'brands' },
-  { id: 'families', label: 'Fragrance Families', filter: 'families' },
-  { id: 'newarrivals', label: 'New Arrivals', filter: 'newarrivals' }
+  { id: 'newarrivals', label: 'New Arrivals', filter: 'newarrivals' },
+  { id: 'bestsellers', label: 'Best Sellers', filter: 'bestsellers' }
 ];
 
 const collectionDescriptions = {
@@ -61,9 +59,8 @@ const shopDescriptions = {
   all: { title: "Curated Catalogue", text: "Browse our entire curated inventory of fragrances, decants, and discovery sets." },
   decants: { title: "Decants & Atomizers", text: "Try before you buy. Elegant travel-sized atomizers of elite luxury scents." },
   fullbottles: { title: "Retail Editions", text: "Invest in a signature scent. Complete factory-sealed retail presentations." },
-  brands: { title: "Luxury Houses", text: "Discover fragrances by house, from Parisian ateliers to modern niche creators." },
-  families: { title: "Aroma Families", text: "Sort by scent profile: from fresh citruses to deep warm ouds." },
-  newarrivals: { title: "New Releases", text: "Experience the latest releases added fresh to our fragrance collection." }
+  newarrivals: { title: "New Releases", text: "Experience the latest releases added fresh to our fragrance collection." },
+  bestsellers: { title: "Elite Favorites", text: "Our most coveted, highest-rated fragrances requested by connoisseurs." }
 };
 
 export default function Navbar({ onNavigate, activePage, onSelectCategory, activeCategory, products = [] }) {
@@ -618,8 +615,8 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
               <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'all')}>Shop All</a></li>
               <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'decants')}>Decants</a></li>
               <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'fullbottles')}>Full Bottles</a></li>
-              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'brands')}>Brands</a></li>
               <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'newarrivals')}>New Arrivals</a></li>
+              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'bestsellers')}>Best Sellers</a></li>
             </ul>
           </li>
           <li>
