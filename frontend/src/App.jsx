@@ -34,7 +34,61 @@ function App() {
   const [activePage, setActivePage] = useState(getPageFromHash);
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
 
+  // Fetch active products from backend database catalog
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const res = await fetch('http://localhost:5000/api/products');
+        if (res.ok) {
+          const dbProducts = await res.json();
+          // Merge with static data for details not present in the DB schema (e.g. pyramid, characteristics, notes)
+          const merged = dbProducts.map(dbProd => {
+            const staticProd = collectionsData.find(sp => sp.slug === dbProd.slug || sp.id === dbProd.id);
+            if (staticProd) {
+              return {
+                ...staticProd,
+                ...dbProd,
+                sizes: dbProd.sizes && dbProd.sizes.length > 0 ? dbProd.sizes : staticProd.sizes
+              };
+            }
+            // Sensible fallbacks for newly added admin panel products
+            return {
+              tagline: dbProd.brand || 'Premium Fragrance',
+              notes: [],
+              tags: dbProd.featured ? ['featured'] : [],
+              pyramid: {
+                top: 'Fresh top notes',
+                heart: 'Aromatic heart notes',
+                base: 'Long-lasting base notes'
+              },
+              characteristics: {
+                longevity: '8+ Hours',
+                sillage: 'Moderate',
+                gender: 'Unisex'
+              },
+              retailPrice: dbProd.price * 1.5,
+              competitorPrice: dbProd.price * 1.25,
+              ...dbProd
+            };
+          });
+          setProducts(merged);
+        } else {
+          setProducts(collectionsData);
+        }
+      } catch (err) {
+        console.error('Failed to load dynamic product catalog:', err);
+        setProducts(collectionsData);
+      } finally {
+        setLoadingProducts(false);
+      }
+    }
+    loadProducts();
+  }, []);
+
+  // Update selected product based on URL hash changes
   useEffect(() => {
     const handleHashChange = () => {
       const page = getPageFromHash();
@@ -44,8 +98,11 @@ function App() {
 
       if (hash.startsWith('product-')) {
         const id = hash.replace('product-', '');
-        const foundProduct = collectionsData.find(
-          (p) => String(p.id) === String(id)
+        // Search in dynamic/merged products first
+        const foundProduct = products.find(
+          (p) => String(p.id) === String(id) || String(p.slug) === String(id)
+        ) || collectionsData.find(
+          (p) => String(p.id) === String(id) || String(p.slug) === String(id)
         );
 
         if (foundProduct) {
@@ -61,7 +118,7 @@ function App() {
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, []);
+  }, [products]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -70,14 +127,16 @@ function App() {
 
   return (
     <div className="flex flex-col gap-0 min-h-screen">
-      <DailyOfferPopup />
+      {activePage !== 'admin' && <DailyOfferPopup />}
       
-      <Navbar
-        onNavigate={setActivePage}
-        activePage={activePage}
-        onSelectCategory={setActiveCategory}
-        activeCategory={activeCategory}
-      />
+      {activePage !== 'admin' && (
+        <Navbar
+          onNavigate={setActivePage}
+          activePage={activePage}
+          onSelectCategory={setActiveCategory}
+          activeCategory={activeCategory}
+        />
+      )}
 
       {activePage === 'home' && (
         <>
@@ -92,11 +151,12 @@ function App() {
       )}
 
       {activePage !== 'home' && (
-        <div style={{ paddingTop: '115px' }}>
+        <div style={{ paddingTop: activePage === 'admin' ? '0' : '115px' }}>
           {activePage === 'shop' && (
             <SignatureCollection
               activeCategory={activeCategory}
               onSelectCategory={setActiveCategory}
+              products={products}
             />
           )}
 
@@ -139,7 +199,7 @@ function App() {
         </div>
       )}
 
-      <Footer onNavigate={setActivePage} />
+      {activePage !== 'admin' && <Footer onNavigate={setActivePage} />}
     </div>
   );
 }

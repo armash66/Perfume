@@ -315,30 +315,47 @@ app.get('/api/products', async (req, res) => {
       where: { isActive: true },
       include: {
         images: {
-          where: { position: 0 },
-          take: 1
+          orderBy: { position: 'asc' }
         },
         variants: {
           where: { isActive: true },
-          orderBy: { price: 'asc' },
-          take: 1
+          orderBy: { price: 'asc' }
         },
-        category: true
+        category: true,
+        reviews: {
+          where: { approved: true },
+          select: { rating: true }
+        }
       }
     });
 
     const response = products.map(p => {
       const startingPrice = p.variants[0] ? parseFloat(p.variants[0].price) : 0;
       const image = p.images[0] ? p.images[0].imageUrl : null;
+      const ratings = p.reviews.map(r => r.rating);
+      const avgRating = ratings.length > 0 ? (ratings.reduce((sum, r) => sum + r, 0) / ratings.length) : 0;
+
       return {
         id: p.id,
         name: p.name,
         slug: p.slug,
         brand: p.brand,
         featured: p.featured,
+        description: p.description,
+        category: p.category ? p.category.slug : null,
         image,
-        startingPrice,
-        category: p.category ? p.category.name : null
+        images: p.images.map(img => img.imageUrl),
+        price: startingPrice,
+        sizes: p.variants.map(v => ({
+          size: v.size,
+          price: parseFloat(v.price),
+          label: v.size.includes('2ml') ? 'Perfect for testing' : 
+                 v.size.includes('5ml') ? 'Travel friendly' : 
+                 v.size.includes('10ml') ? 'Best value' : 'Collector size',
+          stock: v.stock,
+          sku: v.sku
+        })),
+        avgRating: parseFloat(avgRating.toFixed(1))
       };
     });
 
@@ -606,6 +623,33 @@ app.patch('/api/user/profile', requireAuth, async (req, res) => {
   }
 });
 
+// POST elevate user to admin with secret passcode
+app.post('/api/user/elevate', requireAuth, async (req, res) => {
+  const { passcode } = req.body;
+  if (passcode !== 'AtelierAdmin2026') {
+    return res.status(400).json({ error: 'Invalid secret passcode' });
+  }
+
+  try {
+    const dbUser = await getOrCreateDbUser(req.auth.userId);
+    const updatedUser = await prisma.user.update({
+      where: { id: dbUser.id },
+      data: { role: 'ADMIN' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
+      }
+    });
+    return res.status(200).json({ success: true, role: updatedUser.role });
+  } catch (err) {
+    console.error('Failed to elevate user role:', err);
+    return res.status(500).json({ error: 'Failed to elevate user role' });
+  }
+});
+
+
 // ============================================================
 // ADMIN DASHBOARD & ORDERS MANAGEMENT ROUTES
 // ============================================================
@@ -758,6 +802,221 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('Failed to fetch admin users list:', err);
     return res.status(500).json({ error: 'Failed to fetch users list' });
+  }
+});
+
+// PATCH update user role (admin only)
+app.patch('/api/admin/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+  if (role !== 'USER' && role !== 'ADMIN') {
+    return res.status(400).json({ error: 'Invalid user role' });
+  }
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { role },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
+      }
+    });
+    return res.status(200).json(updatedUser);
+  } catch (err) {
+    console.error('Failed to update user role:', err);
+    return res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+// GET all products for admin console with detailed variants and sales aggregation
+app.get('/api/admin/products', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const products = await prisma.product.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        images: {
+          orderBy: { position: 'asc' }
+        },
+        variants: {
+          orderBy: { price: 'asc' }
+        },
+        category: true,
+        orderItems: {
+          select: {
+            quantity: true,
+            priceAtPurchase: true
+          }
+        },
+        reviews: {
+          select: {
+            rating: true
+          }
+        }
+      }
+    });
+
+    const response = products.map(p => {
+      // Calculate units sold and revenue generated
+      let unitsSold = 0;
+      let revenueGenerated = 0;
+      p.orderItems.forEach(item => {
+        unitsSold += item.quantity;
+        revenueGenerated += parseFloat(item.priceAtPurchase) * item.quantity;
+      });
+
+      // Calculate average rating
+      const ratings = p.reviews.map(r => r.rating);
+      const avgRating = ratings.length > 0 ? (ratings.reduce((sum, r) => sum + r, 0) / ratings.length) : 0;
+
+      return {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        brand: p.brand,
+        featured: p.featured,
+        isActive: p.isActive,
+        categoryId: p.categoryId,
+        category: p.category ? p.category.name : null,
+        images: p.images,
+        variants: p.variants,
+        variantsCount: p.variants.length,
+        avgRating: parseFloat(avgRating.toFixed(1)),
+        unitsSold,
+        revenueGenerated
+      };
+    });
+
+    return res.status(200).json(response);
+  } catch (err) {
+    console.error('Failed to fetch admin products:', err);
+    return res.status(500).json({ error: 'Failed to fetch admin products' });
+  }
+});
+
+// GET all reviews for admin
+app.get('/api/admin/reviews', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const reviews = await prisma.review.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        product: { select: { name: true } },
+        user: { select: { name: true, email: true } }
+      }
+    });
+    const response = reviews.map(r => ({
+      id: r.id,
+      productName: r.product.name,
+      customerName: r.user.name || 'Collector',
+      customerEmail: r.user.email,
+      rating: r.rating,
+      comment: r.comment,
+      title: r.title,
+      approved: r.approved,
+      createdAt: r.createdAt
+    }));
+    return res.status(200).json(response);
+  } catch (err) {
+    console.error('Failed to fetch reviews:', err);
+    return res.status(500).json({ error: 'Failed to fetch reviews' });
+  }
+});
+
+// PATCH approve/disapprove review
+app.patch('/api/admin/reviews/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { approved } = req.body;
+  try {
+    const updated = await prisma.review.update({
+      where: { id },
+      data: { approved: !!approved }
+    });
+    return res.status(200).json(updated);
+  } catch (err) {
+    console.error('Failed to update review:', err);
+    return res.status(500).json({ error: 'Failed to update review' });
+  }
+});
+
+// DELETE review
+app.delete('/api/admin/reviews/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.review.delete({ where: { id } });
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Failed to delete review:', err);
+    return res.status(500).json({ error: 'Failed to delete review' });
+  }
+});
+
+// GET all inventory logs for admin
+app.get('/api/admin/inventory-logs', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const logs = await prisma.inventoryLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        variant: {
+          include: {
+            product: { select: { name: true } }
+          }
+        }
+      }
+    });
+    const response = logs.map(l => ({
+      id: l.id,
+      date: l.createdAt,
+      productName: l.variant.product.name,
+      variantSize: l.variant.size,
+      oldStock: l.oldStock,
+      newStock: l.newStock,
+      changeAmount: l.newStock - l.oldStock,
+      reason: l.changeType,
+      adminUser: l.note || 'System Autopilot'
+    }));
+    return res.status(200).json(response);
+  } catch (err) {
+    console.error('Failed to fetch inventory logs:', err);
+    return res.status(500).json({ error: 'Failed to fetch inventory logs' });
+  }
+});
+
+// POST adjust variant inventory stock
+app.post('/api/admin/inventory/adjust', requireAuth, requireAdmin, async (req, res) => {
+  const { sku, newStock, reason, note } = req.body;
+  if (!sku || newStock === undefined) {
+    return res.status(400).json({ error: 'Missing SKU or new stock count' });
+  }
+  try {
+    const variant = await prisma.productVariant.findUnique({
+      where: { sku }
+    });
+    if (!variant) {
+      return res.status(404).json({ error: 'Variant not found with this SKU' });
+    }
+
+    const oldStock = variant.stock;
+    const updatedVariant = await prisma.productVariant.update({
+      where: { sku },
+      data: { stock: parseInt(newStock) }
+    });
+
+    // Create log
+    await prisma.inventoryLog.create({
+      data: {
+        variantId: variant.id,
+        oldStock,
+        newStock: parseInt(newStock),
+        changeType: reason || 'MANUAL_EDIT',
+        note: note || 'Manual adjustment'
+      }
+    });
+
+    return res.status(200).json(updatedVariant);
+  } catch (err) {
+    console.error('Failed to adjust inventory:', err);
+    return res.status(500).json({ error: 'Failed to adjust inventory' });
   }
 });
 

@@ -67,7 +67,7 @@ const ShieldCheckIcon = ({ className }) => (
   </svg>
 );
 
-export default function SignatureCollection({ activeCategory = 'all', onSelectCategory }) {
+export default function SignatureCollection({ activeCategory = 'all', onSelectCategory, products = [] }) {
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,7 +134,7 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
 
   // Olfactory filtering & search & sorting logic
   const filteredAndSortedItems = useMemo(() => {
-    let items = [...collectionsData];
+    let items = products.length > 0 ? [...products] : [...collectionsData];
 
     // 1. Filter by category
     if (currentCategory !== 'all') {

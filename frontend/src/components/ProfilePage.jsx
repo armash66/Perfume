@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth, useUser, SignInButton } from '@clerk/clerk-react';
+import { useAuth, useUser, SignInButton, SignOutButton } from '@clerk/clerk-react';
 
 const statusStyles = {
   PENDING: 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20',
@@ -266,6 +266,11 @@ export default function ProfilePage() {
               >
                 Edit Info
               </button>
+              <SignOutButton redirectUrl="/">
+                <button className="text-[0.65rem] font-bold uppercase tracking-widest text-red-400 hover:text-red-300 bg-transparent border border-red-500/20 px-2.5 py-1 rounded-full cursor-pointer transition-colors">
+                  Sign Out
+                </button>
+              </SignOutButton>
             </div>
           </div>
         </header>
