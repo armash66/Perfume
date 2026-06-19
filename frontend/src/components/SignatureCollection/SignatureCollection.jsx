@@ -236,27 +236,46 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
           if (activeBanner) {
             return (
               <div 
-                className="w-full relative overflow-hidden mb-12 rounded-3xl bg-cover bg-center h-[200px] sm:h-[240px] flex items-center shadow-sm border border-black/5"
-                style={{ backgroundImage: `url(${activeBanner.image})` }}
+                className="w-full relative overflow-hidden mb-12 rounded-3xl h-[180px] md:h-[220px] lg:h-[240px] xl:h-[280px] shadow-sm border border-black/5"
               >
-                {/* Overlay with dynamic darkness matching image brightness */}
-                <div className={`absolute inset-0 z-0 ${
-                  ['summer', 'gym', 'her', 'party'].includes(currentCategory) 
-                    ? 'bg-black/65' 
-                    : 'bg-black/55'
-                }`} />
+                {/* Background image filling container */}
+                <img 
+                  src={activeBanner.image} 
+                  alt={activeBanner.title} 
+                  className="absolute inset-0 w-full h-full object-cover object-center z-0"
+                />
+
+                {/* Dark premium linear gradient overlay */}
+                <div 
+                  className="absolute inset-0 z-10" 
+                  style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.75), rgba(0,0,0,0.45), rgba(0,0,0,0.20))' }}
+                />
                 
-                {/* Content */}
-                <div className="relative z-10 px-8 sm:px-12 max-w-4xl text-left">
-                  <div className="text-[0.6rem] font-bold tracking-[3px] text-white/70 uppercase mb-3">
-                    HOME / CATEGORIES / {activeBanner.title.toUpperCase()}
+                {/* Responsive content positioning */}
+                <div className="absolute inset-0 flex items-center px-4 sm:px-6 md:px-10 lg:px-14 z-20">
+                  <div className="max-w-[700px] text-left">
+                    {/* <div className="text-[0.65rem] sm:text-xs font-medium tracking-[0.25em] text-white/90 drop-shadow-md uppercase mb-3">
+                      HOME / CATEGORIES / {activeBanner.title.toUpperCase()}
+                    </div> */}
+                    <h2 
+                      className="font-heading text-3xl md:text-5xl lg:text-6xl font-medium text-white mb-3 leading-tight tracking-wide drop-shadow-lg"
+                      style={{
+                        color: '#FFFFFF',
+                        fontWeight: 500,
+                        textShadow: '0 2px 4px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.4)'
+                      }}
+                    >
+                      {activeBanner.title}
+                    </h2>
+                    <p 
+                      className="text-xs sm:text-sm text-white/95 max-w-2xl leading-relaxed"
+                      style={{
+                        textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+                      }}
+                    >
+                      {activeBanner.desc}
+                    </p>
                   </div>
-                  <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl font-semibold text-white mb-3 leading-tight tracking-wide">
-                    {activeBanner.title}
-                  </h2>
-                  <p className="text-[0.72rem] sm:text-xs text-white max-w-lg leading-relaxed font-light">
-                    {activeBanner.desc}
-                  </p>
                 </div>
               </div>
             );
@@ -351,25 +370,29 @@ export default function SignatureCollection({ activeCategory = 'all', onSelectCa
 
         {/* Dynamic Products Grid */}
         {filteredAndSortedItems.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {filteredAndSortedItems.map((item) => (
               <div
                 key={item.id}
                 onClick={() => handleProductClick(item.id)}
                 className="
-                  group h-full flex flex-col bg-[#FEFCF9] rounded-3xl
-                  border border-black/6 shadow-sm hover:shadow-md
-                  transition-all duration-500 ease-out hover:-translate-y-1 overflow-hidden cursor-pointer
+                  group h-full flex flex-col bg-white rounded-3xl
+                  border border-black/6 shadow-sm hover:shadow-2xl
+                  transition-all duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.03] overflow-hidden cursor-pointer
                 "
               >
                 {/* Product Image and Badges */}
-                <div className="relative aspect-square overflow-hidden bg-[#F7F3ED]/30 border-b border-black/5">
+                <div className="relative aspect-[4/5] overflow-hidden bg-[#F7F3ED]/30 border-b border-black/5">
                   <img
                     src={item.image}
                     alt={item.name}
                     loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    decoding="async"
+                    className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-110"
                   />
+
+                  {/* Premium gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent pointer-events-none" />
 
                   {/* Overlays Badges */}
                   <div className="absolute top-3 left-3 right-3 z-10 flex flex-col gap-1 pointer-events-none items-start">
