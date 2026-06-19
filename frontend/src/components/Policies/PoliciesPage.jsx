@@ -72,14 +72,17 @@ export default function PoliciesPage() {
         {/* Radial glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[radial-gradient(circle,rgba(176,138,80,0.04)_0%,transparent_65%)] rounded-full" />
 
-        <div className="relative z-10 max-w-6xl mx-auto px-6 py-20 text-center">
+        <div className="relative z-10 max-w-6xl mx-auto px-6 pt-32 pb-16 text-center">
           {/* Eyebrow */}
           <p className="text-[0.65rem] font-bold tracking-[5px] uppercase text-[#B08A50] mb-4">
             Decant Atelier
           </p>
 
           {/* Title */}
-          <h1 className="font-heading text-[clamp(2.2rem,5vw,3.8rem)] font-light text-[#F7F3ED] tracking-wide leading-tight mb-4">
+          <h1 
+            style={{ color: '#FEFCF9' }}
+            className="font-heading text-[clamp(2.2rem,5vw,3.8rem)] font-light tracking-wide leading-tight mb-4"
+          >
             Our Policies
           </h1>
 
@@ -99,7 +102,7 @@ export default function PoliciesPage() {
         <div className="hidden lg:grid lg:grid-cols-[300px_1fr] gap-0 -mt-10 relative z-20">
           {/* Sidebar */}
           <aside className="pt-0">
-            <div className="sticky top-28 bg-[#FEFCF9] rounded-none border border-black/8 shadow-md p-4">
+            <div className="sticky top-28 bg-[#FEFCF9] rounded-2xl border border-black/8 shadow-md p-4">
               <PolicyNav
                 policies={policiesData}
                 activeId={activeId}
@@ -110,7 +113,7 @@ export default function PoliciesPage() {
 
           {/* Content */}
           <div className="pl-12 pt-4 pb-24">
-            <div className="bg-[#FEFCF9] rounded-none border border-black/6 shadow-md p-12 lg:p-16">
+            <div className="bg-[#FEFCF9] rounded-2xl border border-black/6 shadow-md p-12 lg:p-16">
               <PolicyContent policy={activePolicy} />
             </div>
           </div>
@@ -181,7 +184,7 @@ export default function PoliciesPage() {
               </div>
 
               {/* Content card */}
-              <div className="bg-[#FEFCF9] rounded-none border border-black/6 shadow-md p-6 sm:p-10">
+              <div className="bg-[#FEFCF9] rounded-2xl border border-black/6 shadow-md p-6 sm:p-10">
                 <PolicyContent policy={activePolicy} />
               </div>
             </div>
