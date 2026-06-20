@@ -1274,8 +1274,6 @@ app.post('/api/admin/inventory/adjust', requireAuth, requireAdmin, async (req, r
   }
 });
 
-});
-
 // POST add image to product (admin only)
 app.post('/api/products/:id/images', requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
