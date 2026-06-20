@@ -16,8 +16,8 @@ const collectionsMenuItems = [
   { id: 'all', label: 'All Collections', type: 'categories', filter: 'categories' },
   { id: 'summer', label: 'Summer', type: 'collection', filter: 'summer' },
   { id: 'winter', label: 'Winter', type: 'collection', filter: 'winter' },
-  { id: 'office', label: 'Office', type: 'collection', filter: 'office' },
-  { id: 'datenight', label: 'Date Night', type: 'collection', filter: 'datenight' },
+  // { id: 'office', label: 'Office', type: 'collection', filter: 'office' },
+  // { id: 'datenight', label: 'Date Night', type: 'collection', filter: 'datenight' },
   { id: 'her', label: 'For Her', type: 'collection', filter: 'her' },
   { id: 'him', label: 'For Him', type: 'collection', filter: 'him' }
 ];
@@ -26,10 +26,10 @@ const shopMenuItems = [
   { id: 'all', label: 'Shop All', filter: 'all' },
   { id: 'decants', label: 'Decants', filter: 'decants' },
   { id: 'fullbottles', label: 'Full Bottles', filter: 'fullbottles' },
-  { id: 'divider-1', isDivider: true },
-  { id: 'brands', label: 'Brands', filter: 'brands' },
-  { id: 'families', label: 'Fragrance Families', filter: 'families' },
-  { id: 'newarrivals', label: 'New Arrivals', filter: 'newarrivals' }
+  // { id: 'divider-1', isDivider: true },
+  // { id: 'brands', label: 'Brands', filter: 'brands' },
+  // { id: 'newarrivals', label: 'New Arrivals', filter: 'newarrivals' },
+  { id: 'families', label: 'Best Sellers', filter: 'families' },
 ];
 
 const collectionDescriptions = {
