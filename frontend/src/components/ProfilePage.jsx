@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth, useUser, SignOutButton } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ScrollingMarquee from './ScrollingMarquee';
 import './ProfilePage.css';
 
 const statusStyles = {
@@ -248,7 +247,6 @@ export default function ProfilePage() {
           </SignOutButton>
         </div>
       </header>
-      <ScrollingMarquee />
 
       <main className="profile-main">
         {loadingData ? (

@@ -48,7 +48,7 @@ app.post('/api/webhooks/clerk', express.raw({ type: 'application/json' }), async
   const eventType = evt.type;
   console.log(`Received Clerk webhook event: ${eventType}`);
 
-  if (eventType === 'user.created') {
+  if (eventType === 'user.created' || eventType === 'user.updated') {
     const { id, email_addresses, first_name, last_name, phone_numbers } = evt.data;
     const email = email_addresses[0]?.email_address;
     const name = `${first_name || ''} ${last_name || ''}`.trim() || null;
@@ -66,10 +66,25 @@ app.post('/api/webhooks/clerk', express.raw({ type: 'application/json' }), async
           role: 'USER',
         },
       });
-      console.log(`User synced to database: ${id}`);
+      console.log(`User synced to database: ${id} (${eventType})`);
     } catch (err) {
       console.error('Error saving user to DB:', err);
       return res.status(500).json({ error: 'Database write error' });
+    }
+  } else if (eventType === 'user.deleted') {
+    const { id } = evt.data;
+    try {
+      // Set roles/deleted flag or delete record cleanly
+      await prisma.user.delete({
+        where: { clerkId: id }
+      });
+      console.log(`User deleted from database: ${id}`);
+    } catch (err) {
+      console.error('Error deleting user from DB:', err);
+      // Don't fail the webhook if user doesn't exist anymore
+      if (err.code !== 'P2025') {
+        return res.status(500).json({ error: 'Database delete error' });
+      }
     }
   }
 
@@ -115,6 +130,32 @@ async function getOrCreateDbUser(clerkId) {
     });
   }
   return user;
+}
+
+function formatOrder(order) {
+  if (!order) return null;
+  const formatted = {
+    ...order,
+    subtotal: parseFloat(order.subtotal),
+    shippingFee: parseFloat(order.shippingFee),
+    total: parseFloat(order.total),
+  };
+  
+  if (order.orderItems) {
+    formatted.orderItems = order.orderItems.map(item => ({
+      ...item,
+      priceAtPurchase: parseFloat(item.priceAtPurchase)
+    }));
+  }
+  
+  if (order.payment) {
+    formatted.payment = {
+      ...order.payment,
+      amount: parseFloat(order.payment.amount)
+    };
+  }
+  
+  return formatted;
 }
 
 // ============================================================
@@ -320,7 +361,7 @@ app.get('/api/orders', requireAuth, async (req, res) => {
         orderItems: true
       }
     });
-    return res.status(200).json(orders);
+    return res.status(200).json(orders.map(formatOrder));
   } catch (err) {
     console.error('Failed to fetch orders:', err);
     return res.status(500).json({ error: 'Failed to fetch orders' });
@@ -450,11 +491,17 @@ app.post('/api/orders', requireAuth, async (req, res) => {
         where: { userId: dbUser.id }
       });
 
-      return newOrder;
+      return tx.order.findUnique({
+        where: { id: newOrder.id },
+        include: {
+          orderItems: true,
+          payment: true
+        }
+      });
     });
 
     console.log(`Order placed successfully: ${order.id}`);
-    return res.status(201).json(order);
+    return res.status(201).json(formatOrder(order));
   } catch (err) {
     console.error('Failed to place order:', err);
     return res.status(500).json({ error: err.message || 'Failed to place order' });
@@ -492,7 +539,7 @@ const requireAdmin = async (req, res, next) => {
 
 // GET all products
 app.get('/api/products', async (req, res) => {
-  const { search } = req.query;
+  const { search, category } = req.query;
   try {
     const where = { isActive: true };
     if (search) {
@@ -501,6 +548,11 @@ app.get('/api/products', async (req, res) => {
         { brand: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } }
       ];
+    }
+    if (category && category !== 'shop-all') {
+      where.category = {
+        slug: category
+      };
     }
 
     const products = await prisma.product.findMany({
@@ -588,6 +640,13 @@ app.get('/api/products/:slug', async (req, res) => {
       return res.status(404).json({ error: 'Product not found' });
     }
 
+    if (product.variants) {
+      product.variants = product.variants.map(v => ({
+        ...v,
+        price: parseFloat(v.price)
+      }));
+    }
+
     return res.status(200).json(product);
   } catch (err) {
     console.error('Failed to fetch product by slug:', err);
@@ -637,7 +696,14 @@ app.post('/api/products', requireAuth, requireAdmin, async (req, res) => {
       return product;
     });
 
-    return res.status(201).json(newProduct);
+    const formatted = {
+      ...newProduct,
+      variants: newProduct.variants.map(v => ({
+        ...v,
+        price: parseFloat(v.price)
+      }))
+    };
+    return res.status(201).json(formatted);
   } catch (err) {
     console.error('Failed to create product:', err);
     return res.status(500).json({ error: 'Failed to create product' });
@@ -697,7 +763,14 @@ app.patch('/api/products/:id', requireAuth, requireAdmin, async (req, res) => {
       });
     });
 
-    return res.status(200).json(updatedProduct);
+    const formatted = {
+      ...updatedProduct,
+      variants: updatedProduct.variants.map(v => ({
+        ...v,
+        price: parseFloat(v.price)
+      }))
+    };
+    return res.status(200).json(formatted);
   } catch (err) {
     console.error('Failed to update product:', err);
     return res.status(500).json({ error: 'Failed to update product' });
@@ -844,6 +917,13 @@ app.get('/api/user/profile', requireAuth, async (req, res) => {
         }
       }
     });
+
+    if (profileUser && profileUser.orders) {
+      profileUser.orders = profileUser.orders.map(o => ({
+        ...o,
+        total: parseFloat(o.total)
+      }));
+    }
 
     return res.status(200).json(profileUser);
   } catch (err) {
@@ -995,7 +1075,7 @@ app.get('/api/admin/orders', requireAuth, requireAdmin, async (req, res) => {
       }
     });
 
-    return res.status(200).json(orders);
+    return res.status(200).json(orders.map(formatOrder));
   } catch (err) {
     console.error('Failed to fetch admin orders:', err);
     return res.status(500).json({ error: 'Failed to fetch admin orders' });
@@ -1023,7 +1103,7 @@ app.patch('/api/admin/orders/:id', requireAuth, requireAdmin, async (req, res) =
       }
     });
 
-    return res.status(200).json(updatedOrder);
+    return res.status(200).json(formatOrder(updatedOrder));
   } catch (err) {
     console.error('Failed to update order status:', err);
     return res.status(500).json({ error: 'Failed to update order status' });
@@ -1134,7 +1214,10 @@ app.get('/api/admin/products', requireAuth, requireAdmin, async (req, res) => {
         categoryId: p.categoryId,
         category: p.category ? p.category.name : null,
         images: p.images,
-        variants: p.variants,
+        variants: p.variants.map(v => ({
+          ...v,
+          price: parseFloat(v.price)
+        })),
         variantsCount: p.variants.length,
         avgRating: parseFloat(avgRating.toFixed(1)),
         unitsSold,
@@ -1330,7 +1413,10 @@ app.post('/api/products/:id/variants', requireAuth, requireAdmin, async (req, re
         isActive: true
       }
     });
-    return res.status(201).json(newVariant);
+    return res.status(201).json({
+      ...newVariant,
+      price: parseFloat(newVariant.price)
+    });
   } catch (err) {
     console.error('Failed to add variant:', err);
     return res.status(500).json({ error: 'Failed to add variant' });
@@ -1354,7 +1440,10 @@ app.patch('/api/products/:id/variants/:variantId', requireAuth, requireAdmin, as
       where: { id: variantId },
       data
     });
-    return res.status(200).json(updatedVariant);
+    return res.status(200).json({
+      ...updatedVariant,
+      price: parseFloat(updatedVariant.price)
+    });
   } catch (err) {
     console.error('Failed to update variant:', err);
     return res.status(500).json({ error: 'Failed to update variant' });
@@ -1389,7 +1478,19 @@ app.get('/api/cart', requireAuth, async (req, res) => {
         }
       }
     });
-    return res.status(200).json(cartItems);
+    const formatted = cartItems.map(item => {
+      if (item.variant) {
+        return {
+          ...item,
+          variant: {
+            ...item.variant,
+            price: parseFloat(item.variant.price)
+          }
+        };
+      }
+      return item;
+    });
+    return res.status(200).json(formatted);
   } catch (err) {
     console.error('Failed to fetch cart:', err);
     return res.status(500).json({ error: 'Failed to fetch cart' });
@@ -1406,17 +1507,36 @@ app.post('/api/cart', requireAuth, async (req, res) => {
   try {
     const dbUser = await getOrCreateDbUser(req.auth.userId);
     
+    // Get variant to check stock
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: variantId }
+    });
+    if (!variant) {
+      return res.status(404).json({ error: 'Variant not found' });
+    }
+
     // Find if exists
     const existing = await prisma.cartItem.findFirst({
       where: { userId: dbUser.id, variantId }
     });
 
+    const newQuantity = existing ? (existing.quantity + qty) : qty;
+    if (variant.stock < newQuantity) {
+      return res.status(400).json({ error: `Insufficient stock. Only ${variant.stock} available.` });
+    }
+
     if (existing) {
       const updated = await prisma.cartItem.update({
         where: { id: existing.id },
-        data: { quantity: existing.quantity + qty }
+        data: { quantity: existing.quantity + qty },
+        include: {
+          variant: true
+        }
       });
-      return res.status(200).json(updated);
+      return res.status(200).json({
+        ...updated,
+        variant: updated.variant ? { ...updated.variant, price: parseFloat(updated.variant.price) } : undefined
+      });
     }
 
     const newItem = await prisma.cartItem.create({
@@ -1424,9 +1544,15 @@ app.post('/api/cart', requireAuth, async (req, res) => {
         userId: dbUser.id,
         variantId,
         quantity: qty
+      },
+      include: {
+        variant: true
       }
     });
-    return res.status(201).json(newItem);
+    return res.status(201).json({
+      ...newItem,
+      variant: newItem.variant ? { ...newItem.variant, price: parseFloat(newItem.variant.price) } : undefined
+    });
   } catch (err) {
     console.error('Failed to add to cart:', err);
     return res.status(500).json({ error: 'Failed to add to cart' });
@@ -1443,17 +1569,40 @@ app.patch('/api/cart/:id', requireAuth, async (req, res) => {
   const qty = parseInt(quantity);
   try {
     const dbUser = await getOrCreateDbUser(req.auth.userId);
+    
+    const cartItem = await prisma.cartItem.findFirst({
+      where: { id, userId: dbUser.id },
+      include: { variant: true }
+    });
+    if (!cartItem) {
+      return res.status(404).json({ error: 'Cart item not found' });
+    }
+
     if (qty <= 0) {
       await prisma.cartItem.delete({
         where: { id, userId: dbUser.id }
       });
       return res.status(200).json({ success: true, message: 'Item removed' });
     }
+
+    if (!cartItem.variant) {
+      return res.status(404).json({ error: 'Variant not found for this cart item' });
+    }
+    if (cartItem.variant.stock < qty) {
+      return res.status(400).json({ error: `Insufficient stock. Only ${cartItem.variant.stock} available.` });
+    }
+
     const updated = await prisma.cartItem.update({
       where: { id, userId: dbUser.id },
-      data: { quantity: qty }
+      data: { quantity: qty },
+      include: {
+        variant: true
+      }
     });
-    return res.status(200).json(updated);
+    return res.status(200).json({
+      ...updated,
+      variant: updated.variant ? { ...updated.variant, price: parseFloat(updated.variant.price) } : undefined
+    });
   } catch (err) {
     console.error('Failed to update cart item:', err);
     return res.status(500).json({ error: 'Failed to update cart item' });
@@ -1499,7 +1648,7 @@ app.get('/api/orders/:id', requireAuth, async (req, res) => {
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
-    return res.status(200).json(order);
+    return res.status(200).json(formatOrder(order));
   } catch (err) {
     console.error('Failed to fetch order details:', err);
     return res.status(500).json({ error: 'Failed to fetch order details' });

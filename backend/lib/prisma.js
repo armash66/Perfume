@@ -4,14 +4,10 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dotenvResult = dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaNeon } from '@prisma/adapter-neon';
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import ws from 'ws';
-
-neonConfig.webSocketConstructor = ws;
 
 const globalForPrisma = global;
 
@@ -20,8 +16,7 @@ function getPrismaInstance() {
   if (!connectionString) {
     throw new Error("Missing DATABASE_URL environment variable.");
   }
-  const pool = new Pool({ connectionString });
-  const adapter = new PrismaNeon(pool);
+  const adapter = new PrismaNeon({ connectionString });
   return new PrismaClient({ adapter });
 }
 
