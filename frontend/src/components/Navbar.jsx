@@ -614,7 +614,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
                 <SearchIcon className="nav-search-svg" />
               </button>
 
-              <a href="#wishlist" className="nav-icon-btn" onClick={(e) => handleLinkClick(e, 'wishlist')} title="My Wishlist" aria-label="Wishlist">
+              <a href="#wishlist" className="nav-icon-btn nav-wishlist-btn" onClick={(e) => handleLinkClick(e, 'wishlist')} title="My Wishlist" aria-label="Wishlist">
                 <HeartIcon className="nav-wishlist-icon" />
               </a>
 
@@ -668,6 +668,12 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
           <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'bestsellers')}>Best Sellers</a></li>
           <li><a href="#about" onClick={(e) => handleLinkClick(e, 'about')}>About</a></li>
           <li><a href="#wishlist" onClick={(e) => handleLinkClick(e, 'wishlist')}>My Wishlist</a></li>
+          <li>
+            <a href="#cart" onClick={(e) => handleLinkClick(e, 'cart')} className="mobile-cart-link" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Shopping Bag</span>
+              {cartCount > 0 && <span className="mobile-drawer-cart-count">{cartCount}</span>}
+            </a>
+          </li>
           
           <SignedIn>
             <div className="mobile-drawer-divider" />
