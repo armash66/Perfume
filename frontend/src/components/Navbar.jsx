@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, SignInButton, SignOutButton } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './Navbar.css';
 
@@ -65,8 +65,6 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
-  const [activeSearchTab, setActiveSearchTab] = useState('all');
   const [isMobileShopOpen, setIsMobileShopOpen] = useState(false);
   const [isMobileCollectionsOpen, setIsMobileCollectionsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -145,7 +143,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
   }, [isSearchOpen]);
 
   useEffect(() => {
-    if (isSearchOpen) {
+    if (isSearchOpen || isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -153,7 +151,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isSearchOpen]);
+  }, [isSearchOpen, isMobileMenuOpen]);
 
   useEffect(() => {
     setIsSearchOpen(false);
@@ -394,36 +392,6 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
     setSearchQuery('');
   };
 
-  const mobileSearchResults = useMemo(() => {
-    if (!mobileSearchQuery.trim()) return { products: [], brands: [], notes: [] };
-    const q = mobileSearchQuery.toLowerCase().trim();
-    
-    // Filter matching products
-    const matchedProducts = products.filter(p => 
-      p.name.toLowerCase().includes(q) || 
-      (p.brand && p.brand.toLowerCase().includes(q))
-    ).slice(0, 5);
-
-    // Filter matching brands
-    const matchedBrands = Array.from(new Set(
-      products
-        .filter(p => p.brand && p.brand.toLowerCase().includes(q))
-        .map(p => p.brand)
-    )).slice(0, 3);
-
-    // Filter matching notes
-    const matchedNotes = Array.from(new Set(
-      products
-        .flatMap(p => p.notes || [])
-        .filter(note => note.toLowerCase().includes(q))
-    )).slice(0, 5);
-
-    return {
-      products: matchedProducts,
-      brands: matchedBrands,
-      notes: matchedNotes
-    };
-  }, [mobileSearchQuery, products]);
 
   const activeShopInfo = useMemo(() => {
     return hoveredShopIndex !== null && hoveredShopIndex >= 0 && !shopMenuItems[hoveredShopIndex].isDivider
@@ -657,112 +625,6 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
           </button>
         </div>
 
-        {/* Integrated Mobile Search */}
-        <div className="mobile-search-section">
-          <div className="mobile-search-input-container">
-            <SearchIcon className="mobile-search-icon" />
-            <input
-              type="text"
-              placeholder="Search scents, brands, notes..."
-              value={mobileSearchQuery}
-              onChange={(e) => setMobileSearchQuery(e.target.value)}
-              className="mobile-search-input"
-            />
-            {mobileSearchQuery && (
-              <button 
-                onClick={() => setMobileSearchQuery('')} 
-                className="mobile-search-clear"
-                aria-label="Clear mobile search"
-              >
-                ×
-              </button>
-            )}
-          </div>
-
-          {/* Inline search results */}
-          {mobileSearchQuery.trim() !== '' && (
-            <div className="mobile-search-results scrollbar-hide">
-              {mobileSearchResults.brands.length > 0 && (
-                <div className="mobile-search-group">
-                  <span className="mobile-search-group-title">Brands</span>
-                  <div className="mobile-search-pills">
-                    {mobileSearchResults.brands.map(brand => (
-                      <button
-                        key={brand}
-                        onClick={(e) => {
-                          setMobileSearchQuery('');
-                          setIsMobileMenuOpen(false);
-                          window.location.hash = `collection?search=${encodeURIComponent(brand)}`;
-                        }}
-                        className="mobile-search-pill"
-                      >
-                        {brand}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {mobileSearchResults.notes.length > 0 && (
-                <div className="mobile-search-group">
-                  <span className="mobile-search-group-title">Olfactory Notes</span>
-                  <div className="mobile-search-pills">
-                    {mobileSearchResults.notes.map(note => (
-                      <button
-                        key={note}
-                        onClick={() => {
-                          setMobileSearchQuery('');
-                          setIsMobileMenuOpen(false);
-                          window.location.hash = `collection?search=${encodeURIComponent(note)}`;
-                        }}
-                        className="mobile-search-pill"
-                      >
-                        {note}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {mobileSearchResults.products.length > 0 ? (
-                <div className="mobile-search-group">
-                  <span className="mobile-search-group-title">Fragrances</span>
-                  <div className="mobile-search-products-list">
-                    {mobileSearchResults.products.map(product => (
-                      <div
-                        key={product.id}
-                        onClick={() => {
-                          setMobileSearchQuery('');
-                          setIsMobileMenuOpen(false);
-                          window.location.hash = `product-${product.slug || product.id}`;
-                        }}
-                        className="mobile-search-product-item"
-                      >
-                        <img 
-                          src={product.image || '/images/perfume_placeholder.jpeg'} 
-                          alt={product.name} 
-                          className="mobile-search-product-img"
-                        />
-                        <div className="mobile-search-product-info">
-                          <span className="mobile-search-product-brand">{product.brand}</span>
-                          <span className="mobile-search-product-name">{product.name}</span>
-                        </div>
-                        <span className="mobile-search-product-price">₹{product.price}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                mobileSearchResults.brands.length === 0 && mobileSearchResults.notes.length === 0 && (
-                  <div className="mobile-search-empty">
-                    No matching scents found.
-                  </div>
-                )
-              )}
-            </div>
-          )}
-        </div>
-
         <ul className="mobile-nav-list">
           <li>
             <button className={`mobile-accordion ${isMobileShopOpen ? 'expanded' : ''}`} onClick={() => setIsMobileShopOpen(!isMobileShopOpen)}>
@@ -791,9 +653,9 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
             </ul>
           </li>
           <li><a href="#gifting" onClick={(e) => handleLinkClick(e, 'gifting')}>Gifting</a></li>
+          <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'bestsellers')}>Best Sellers</a></li>
           <li><a href="#about" onClick={(e) => handleLinkClick(e, 'about')}>About</a></li>
-          <li><a href="#reviews" onClick={(e) => handleLinkClick(e, 'reviews')}>Reviews</a></li>
-          <li><a href="#contact" onClick={(e) => handleLinkClick(e, 'contact')}>Contact</a></li>
+          <li><a href="#shop?category=wishlist" onClick={(e) => { setIsMobileMenuOpen(false); window.location.hash = 'shop?category=wishlist'; }}>My Wishlist</a></li>
           
           <SignedIn>
             <div className="mobile-drawer-divider" />
@@ -802,38 +664,21 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
             <li><a href="#profile?tab=orders" onClick={(e) => handleLinkClick(e, 'profile')}>My Orders</a></li>
             <li><a href="#profile?tab=addresses" onClick={(e) => handleLinkClick(e, 'profile')}>Manage Addresses</a></li>
             <li><a href="#profile?tab=security" onClick={(e) => handleLinkClick(e, 'profile')}>Account Security</a></li>
-            <li><a href="#shop?category=wishlist" onClick={(e) => { setIsMobileMenuOpen(false); window.location.hash = 'shop?category=wishlist'; }}>My Wishlist</a></li>
+            <li>
+              <SignOutButton redirectUrl="/">
+                <a href="#" onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); }}>Log Out</a>
+              </SignOutButton>
+            </li>
           </SignedIn>
           <SignedOut>
             <div className="mobile-drawer-divider" />
-            <li><a href="#shop?category=wishlist" onClick={(e) => { setIsMobileMenuOpen(false); window.location.hash = 'shop?category=wishlist'; }}>My Wishlist</a></li>
+            <li>
+              <SignInButton mode="modal">
+                <a href="#" onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); }}>Log In</a>
+              </SignInButton>
+            </li>
           </SignedOut>
         </ul>
-
-        {/* Mobile Quick Actions at Bottom */}
-        <div className="mobile-menu-actions">
-          <SignedIn>
-            <a href="#profile" className="mobile-action-btn" onClick={(e) => handleLinkClick(e, 'profile')}>
-              <UserIcon className="mobile-action-icon" />
-              <span>Profile</span>
-            </a>
-          </SignedIn>
-          <SignedOut>
-            <SignInButton mode="modal">
-              <button className="mobile-action-btn" onClick={() => setIsMobileMenuOpen(false)}>
-                <UserIcon className="mobile-action-icon" />
-                <span>Login</span>
-              </button>
-            </SignInButton>
-          </SignedOut>
-          <a href="#cart" className="mobile-action-btn" onClick={(e) => handleLinkClick(e, 'cart')}>
-            <div className="mobile-cart-badge-wrapper">
-              <ShoppingBagIcon className="mobile-action-icon" />
-              {cartCount > 0 && <span className="mobile-cart-count">{cartCount}</span>}
-            </div>
-            <span>Bag</span>
-          </a>
-        </div>
       </div>
 
       {/* ─── Search Overlay — Spotlight / Raycast Style ─── */}
