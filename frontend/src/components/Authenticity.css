@@ -52,42 +52,48 @@
 .auth-badges {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .auth-badge {
   background: #FEFCF9;
-  border: 1px solid rgba(176, 138, 80, 0.12); /* Antique gold minimal border */
-  border-radius: 32px; /* Large radius pill corners */
-  padding: 1.4rem 2rem;
+  border: 1px solid rgba(176, 138, 80, 0.14);
+  border-radius: 28px;
+  padding: 2.25rem 2.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.02);
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.45rem;
+  min-height: 150px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 
 .auth-badge:hover {
   background: #FEFCF9;
   border-color: #B08A50;
-  transform: translateY(-3px);
-  box-shadow: 0 15px 35px rgba(176, 138, 80, 0.08); /* Soft gold glow */
+  transform: translateY(-4px);
+  box-shadow: 0 20px 45px rgba(176, 138, 80, 0.1);
 }
 
 .badge-name {
   font-family: var(--font-heading), serif;
-  font-size: 1.1rem;
-  font-weight: 400;
+  font-size: 1.5rem;
+  font-weight: 300;
   color: #1C1B18;
+  line-height: 1.2;
 }
 
 .badge-sub {
   font-family: var(--font-body);
-  font-size: 0.58rem;
+  font-size: 0.63rem;
   font-weight: 600;
-  letter-spacing: 2px;
+  letter-spacing: 2.5px;
   text-transform: uppercase;
   color: #B08A50;
+  line-height: 1;
 }
 
 /* Right side Certificate card: styled as fine textured parchment paper */
