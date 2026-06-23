@@ -184,3 +184,500 @@ html {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Unified Responsive Luxury Page Hero
+   ═══════════════════════════════════════════════════════════ */
+.page-hero {
+  position: relative;
+  background-color: #1C1B18; /* Luxury deep charcoal background */
+  color: #FEFCF9;
+  text-align: center;
+  padding: clamp(6rem, 12vw, 8.5rem) clamp(1.2rem, 3vw, 2.5rem) clamp(2.5rem, 6vw, 4rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  width: 100%;
+}
+
+.page-hero-bg-text {
+  position: absolute;
+  font-family: var(--font-heading);
+  font-size: clamp(4rem, 11vw, 9rem);
+  font-weight: 300;
+  color: rgba(254, 252, 249, 0.02); /* Extremely subtle watermarked background letter */
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  user-select: none;
+  pointer-events: none;
+  z-index: 1;
+  white-space: nowrap;
+  top: 55%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.page-hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 750px;
+  width: 100%;
+}
+
+.page-hero-eyebrow {
+  font-family: var(--font-body);
+  font-size: clamp(0.52rem, 1.2vw, 0.62rem);
+  font-weight: 700;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: #B08A50; /* Signature gold */
+  margin-bottom: 0.25rem;
+}
+
+.page-hero-title {
+  font-family: var(--font-heading);
+  font-size: clamp(1.8rem, 4.5vw, 3rem);
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: #FEFCF9;
+}
+
+.page-hero-subtitle {
+  font-family: var(--font-body);
+  font-size: clamp(0.72rem, 1.8vw, 0.8rem);
+  font-weight: 300;
+  color: rgba(254, 252, 249, 0.6);
+  max-width: 460px;
+  line-height: 1.6;
+  margin-top: 0.5rem;
+}
+
+.page-hero-divider {
+  margin-top: 1.5rem;
+  height: 1px;
+  width: 40px;
+  background-color: #B08A50;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Shimmering Skeleton Loader Classes
+   ═══════════════════════════════════════════════════════════ */
+@keyframes skeletonShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #F3F1EC 25%, #EBE8E0 50%, #F3F1EC 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.6s infinite ease-in-out;
+  border-radius: 4px;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 24px;
+  overflow: hidden;
+  height: 100%;
+}
+
+.skeleton-card-image {
+  aspect-ratio: 4/5;
+  width: 100%;
+}
+
+.skeleton-card-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.skeleton-text-eyebrow {
+  height: 8px;
+  width: 40%;
+}
+
+.skeleton-text-title {
+  height: 14px;
+  width: 85%;
+}
+
+.skeleton-text-price {
+  height: 12px;
+  width: 30%;
+}
+
+.skeleton-button {
+  height: 44px;
+  width: 100%;
+  margin-top: auto;
+  border-radius: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Olfactory Scales and Progress Meters
+   ═══════════════════════════════════════════════════════════ */
+.lux-scale-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lux-scale-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: rgba(28, 27, 24, 0.1);
+  transition: background-color 0.4s ease;
+}
+
+.lux-scale-dot.active {
+  background-color: #B08A50;
+}
+
+.free-shipping-progress {
+  width: 100%;
+  height: 4px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.free-shipping-progress-bar {
+  height: 100%;
+  background-color: #B08A50;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Anatomy of a Decant - Exploded Assembly & Interactive Hotspots
+   ═══════════════════════════════════════════════════════════ */
+.assembly-container {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.exploded-component {
+  transition: transform 2.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 2.2s cubic-bezier(0.16, 1, 0.3, 1), fill 0.3s ease, stroke 0.3s ease;
+}
+
+/* Exploded state (initial offsets) */
+.exploded-glass {
+  transform: translateY(35px);
+  opacity: 0.25;
+}
+.exploded-liquid {
+  transform: scaleY(0.05);
+  transform-origin: bottom;
+  opacity: 0;
+  transition: transform 2.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 2.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.exploded-atomizer {
+  transform: translateY(-80px);
+  opacity: 0.15;
+}
+.exploded-seal {
+  transform: translateY(-50px);
+  opacity: 0;
+  transition: transform 2.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 2.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.exploded-sleeve {
+  transform: translateX(80px) rotate(10deg);
+  opacity: 0;
+  transition: transform 2.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 2.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Assembled state (zero offsets) */
+.assembled .exploded-glass {
+  transform: translateY(0);
+  opacity: 1;
+}
+.assembled .exploded-liquid {
+  transform: scaleY(1);
+  opacity: 0.75;
+}
+.assembled .exploded-atomizer {
+  transform: translateY(0);
+  opacity: 1;
+}
+.assembled .exploded-seal {
+  transform: translateY(0);
+  opacity: 1;
+}
+.assembled .exploded-sleeve {
+  transform: translateX(0) rotate(0deg);
+  opacity: 0.12;
+}
+
+/* Highlight active hotspot component */
+.active-component-glass {
+  stroke: #B08A50 !important;
+  stroke-width: 2.5px !important;
+  fill: rgba(176, 138, 80, 0.28) !important;
+}
+.active-component-liquid {
+  fill: #B08A50 !important;
+  opacity: 0.95 !important;
+}
+.active-component-atomizer {
+  fill: #B08A50 !important;
+  stroke: #B08A50 !important;
+}
+.active-component-seal {
+  fill: #C5A066 !important;
+  stroke: #B08A50 !important;
+  stroke-width: 1.5px !important;
+}
+.active-component-sleeve {
+  fill: #B08A50 !important;
+  opacity: 0.22 !important;
+}
+
+/* Hotspot pulse rings */
+@keyframes hotspot-pulse {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.hotspot-pulse-ring {
+  transform-origin: center;
+  animation: hotspot-pulse 2s infinite cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.hotspot-group {
+  cursor: pointer;
+}
+
+.hotspot-group:hover .hotspot-core-dot {
+  fill: #1C1B18;
+  transform: scale(1.2);
+}
+
+.hotspot-core-dot {
+  transition: all 0.3s ease;
+  transform-origin: center;
+}
+
+/* Editorial Cost breakdown tabs */
+.cost-tab-btn {
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  color: rgba(28, 27, 24, 0.4);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.cost-tab-btn:hover {
+  color: #1C1B18;
+  border-left-color: rgba(28, 27, 24, 0.15);
+}
+
+.cost-tab-btn.active {
+  color: #1C1B18;
+  border-left-color: #B08A50;
+  background-color: rgba(176, 138, 80, 0.03);
+}
+
+/* Sourcing Timeline */
+.journey-timeline {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-left: 2rem;
+}
+
+.journey-timeline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 7px;
+  width: 1px;
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.journey-step {
+  position: relative;
+  padding-bottom: 2.5rem;
+}
+
+.journey-step:last-child {
+  padding-bottom: 0;
+}
+
+.journey-dot {
+  position: absolute;
+  left: -28px;
+  top: 4px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background-color: #FEFCF9;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s ease;
+  z-index: 2;
+}
+
+.journey-step:hover .journey-dot {
+  border-color: #B08A50;
+  box-shadow: 0 0 8px rgba(176, 138, 80, 0.2);
+}
+
+.journey-step-number {
+  font-size: 8px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.journey-step:hover .journey-step-number {
+  color: #B08A50;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PDP Editorial Redesign Styling
+   ═══════════════════════════════════════════════════════════ */
+.gallery-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(28, 27, 24, 0.05);
+  border-radius: 24px;
+  padding: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.4s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+}
+
+.gallery-card:hover {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
+  border-color: rgba(28, 27, 24, 0.08);
+}
+
+/* Premium Specification Cards (Watch style) */
+.spec-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .spec-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.spec-card {
+  background-color: #FEFCF9;
+  border: 1px solid rgba(28, 27, 24, 0.05);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  transition: border-color 0.3s ease;
+}
+
+.spec-card:hover {
+  border-color: rgba(176, 138, 80, 0.3);
+}
+
+.spec-card-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: rgba(28, 27, 24, 0.4);
+}
+
+.spec-card-value {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: #1C1B18;
+}
+
+/* Compact Premium Selection Card */
+.config-card {
+  background-color: #FEFCF9;
+  border: 1px solid rgba(28, 27, 24, 0.06);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Minimalist Tabbed Interface */
+.tab-header-btn {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: rgba(28, 27, 24, 0.4);
+  padding-bottom: 8px;
+  position: relative;
+  transition: color 0.3s ease;
+}
+
+.tab-header-btn:hover,
+.tab-header-btn.active {
+  color: #1C1B18;
+}
+
+.tab-header-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #B08A50;
+}
+
+/* Review Cards inspired by the Chamat reference */
+.review-card {
+  background-color: #FEFCF9;
+  border: 1px solid rgba(28, 27, 24, 0.05);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
