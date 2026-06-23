@@ -160,67 +160,60 @@ export const addToCart = async (product, sizeOption, quantity = 1, token = null)
     }
   }
 
-  if (token) {
-    try {
-      const res = await fetch('http://localhost:5000/api/cart', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          variantId: sizeOption.variantId,
-          quantity
-        })
-      });
-
-      if (res.ok) {
-        const syncSuccess = await syncDbCartWithCache(token);
-        if (syncSuccess) {
-          showToast('Added to your olfactory collection.', 'success');
-        } else {
-          showToast('Added to account, but database sync failed.', 'warning');
-        }
-      } else {
-        const errData = await res.json();
-        showToast(errData.error || 'Failed to add item to account.', 'error');
-      }
-    } catch (err) {
-      console.error('Error adding to database cart:', err);
-      showToast('Failed to connect to account server.', 'error');
+  const cart = getCart();
+  const sizeLabel = sizeOption.size || 'Default Size';
+  
+  const existingItemIndex = cart.findIndex(item => {
+    if (item.variantId && sizeOption.variantId && item.variantId === sizeOption.variantId) {
+      return true;
     }
+    const itemProdId = item.productId || item.id;
+    const currProdId = product.id || product.productId;
+    return itemProdId === currProdId && item.size === sizeLabel;
+  });
+  
+  if (existingItemIndex > -1) {
+    cart[existingItemIndex].quantity += quantity;
   } else {
-    const cart = getCart();
-    const sizeLabel = sizeOption.size || 'Default Size';
-    
-    const existingItemIndex = cart.findIndex(item => {
-      if (item.variantId && sizeOption.variantId && item.variantId === sizeOption.variantId) {
-        return true;
-      }
-      const itemProdId = item.productId || item.id;
-      const currProdId = product.id || product.productId;
-      return itemProdId === currProdId && item.size === sizeLabel;
+    cart.push({
+      id: product.id,
+      productId: product.id,
+      variantId: sizeOption.variantId,
+      name: product.name,
+      brand: product.brand,
+      image: product.image || (product.images && product.images[0]) || '',
+      size: sizeLabel,
+      price: sizeOption.price || product.price,
+      quantity: quantity,
+      label: sizeOption.label || ''
     });
-    
-    if (existingItemIndex > -1) {
-      cart[existingItemIndex].quantity += quantity;
-    } else {
-      cart.push({
-        id: product.id,
-        productId: product.id,
+  }
+  
+  // Instant local update to keep UI highly responsive
+  saveCart(cart);
+  showToast('Added to your local shopping bag.', 'success');
+
+  if (token) {
+    // Sync to database in the background
+    fetch('http://localhost:5000/api/cart', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
         variantId: sizeOption.variantId,
-        name: product.name,
-        brand: product.brand,
-        image: product.image || (product.images && product.images[0]) || '',
-        size: sizeLabel,
-        price: sizeOption.price || product.price,
-        quantity: quantity,
-        label: sizeOption.label || ''
-      });
-    }
-    
-    saveCart(cart);
-    showToast('Added to your local shopping bag.', 'success');
+        quantity
+      })
+    }).then(res => {
+      if (res.ok) {
+        syncDbCartWithCache(token);
+      } else {
+        console.warn('[Diagnostics] Background DB sync failed on item add.');
+      }
+    }).catch(err => {
+      console.error('Failed to sync added item in background:', err);
+    });
   }
 };
 
@@ -229,47 +222,41 @@ export const updateQuantity = async (id, size, quantity, token = null) => {
     console.log('[Diagnostics] Update Qty: ID:', id, 'Size:', size, 'Quantity:', quantity, 'Token:', !!token);
   }
 
-  if (token) {
-    const cart = getCart();
-    const item = cart.find(i => 
-      (i.variantId && id === i.variantId) || 
-      (i.id === id && i.size === size)
-    );
-    if (item && item.dbCartItemId) {
-      try {
-        const res = await fetch(`http://localhost:5000/api/cart/${item.dbCartItemId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ quantity })
-        });
-        if (res.ok) {
-          await syncDbCartWithCache(token);
-        } else {
-          const errData = await res.json();
-          showToast(errData.error || 'Failed to update selection.', 'error');
-        }
-      } catch (err) {
-        console.error('Error updating cart quantity on server:', err);
-        showToast('Error communicating with backend.', 'error');
-      }
+  let cart = getCart();
+  const itemIndex = cart.findIndex(item => 
+    (item.variantId && id === item.variantId) || 
+    (item.id === id && item.size === size)
+  );
+
+  let dbCartItemId = null;
+  if (itemIndex > -1) {
+    dbCartItemId = cart[itemIndex].dbCartItemId;
+    if (quantity <= 0) {
+      cart = cart.filter((_, idx) => idx !== itemIndex);
+    } else {
+      cart[itemIndex].quantity = quantity;
     }
-  } else {
-    let cart = getCart();
-    const itemIndex = cart.findIndex(item => 
-      (item.variantId && id === item.variantId) || 
-      (item.id === id && item.size === size)
-    );
-    if (itemIndex > -1) {
-      if (quantity <= 0) {
-        cart = cart.filter((_, idx) => idx !== itemIndex);
+    saveCart(cart);
+  }
+
+  if (token && dbCartItemId) {
+    // Sync to database in the background
+    fetch(`http://localhost:5000/api/cart/${dbCartItemId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ quantity })
+    }).then(res => {
+      if (res.ok) {
+        syncDbCartWithCache(token);
       } else {
-        cart[itemIndex].quantity = quantity;
+        console.warn('[Diagnostics] Background DB sync failed on quantity update.');
       }
-      saveCart(cart);
-    }
+    }).catch(err => {
+      console.error('Failed to sync updated quantity in background:', err);
+    });
   }
 };
 
@@ -278,42 +265,36 @@ export const removeFromCart = async (id, size, token = null) => {
     console.log('[Diagnostics] Remove From Cart: ID:', id, 'Size:', size, 'Token:', !!token);
   }
 
-  if (token) {
-    const cart = getCart();
-    const item = cart.find(i => 
-      (i.variantId && id === i.variantId) || 
-      (i.id === id && i.size === size)
-    );
-    if (item && item.dbCartItemId) {
-      try {
-        const res = await fetch(`http://localhost:5000/api/cart/${item.dbCartItemId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (res.ok) {
-          await syncDbCartWithCache(token);
-          showToast('Selection removed.', 'success');
-        } else {
-          showToast('Failed to remove selection.', 'error');
-        }
-      } catch (err) {
-        console.error('Error deleting cart item on server:', err);
-        showToast('Error communicating with backend.', 'error');
+  let cart = getCart();
+  const itemIndex = cart.findIndex(item => 
+    (item.variantId && id === item.variantId) || 
+    (item.id === id && item.size === size)
+  );
+
+  let dbCartItemId = null;
+  if (itemIndex > -1) {
+    dbCartItemId = cart[itemIndex].dbCartItemId;
+    const updatedCart = cart.filter((_, idx) => idx !== itemIndex);
+    saveCart(updatedCart);
+    showToast('Selection removed.', 'success');
+  }
+
+  if (token && dbCartItemId) {
+    // Sync to database in the background
+    fetch(`http://localhost:5000/api/cart/${dbCartItemId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
       }
-    }
-  } else {
-    let cart = getCart();
-    const itemIndex = cart.findIndex(item => 
-      (item.variantId && id === item.variantId) || 
-      (item.id === id && item.size === size)
-    );
-    if (itemIndex > -1) {
-      const updatedCart = cart.filter((_, idx) => idx !== itemIndex);
-      saveCart(updatedCart);
-      showToast('Selection removed.', 'success');
-    }
+    }).then(res => {
+      if (res.ok) {
+        syncDbCartWithCache(token);
+      } else {
+        console.warn('[Diagnostics] Background DB sync failed on item remove.');
+      }
+    }).catch(err => {
+      console.error('Failed to sync item removal in background:', err);
+    });
   }
 };
 

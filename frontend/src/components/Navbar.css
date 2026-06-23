@@ -227,7 +227,8 @@ body.marquee-hidden .main-content-padding {
 
 .nav-bag-icon,
 .nav-profile-svg,
-.nav-search-svg {
+.nav-search-svg,
+.nav-wishlist-icon {
   width: 20px;
   height: 20px;
   stroke-width: 1.4px;

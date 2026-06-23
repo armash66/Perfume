@@ -25,6 +25,12 @@ const SearchIcon = ({ className }) => (
   </svg>
 );
 
+const HeartIcon = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </svg>
+);
+
 const collectionsMenuItems = [
   { id: 'all', label: 'All Collections', type: 'categories', filter: 'categories' },
   { id: 'summer', label: 'Summer', type: 'collection', filter: 'summer' },
@@ -302,8 +308,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
     const syncCart = () => {
       try {
         const cart = JSON.parse(localStorage.getItem('cartItems') || '[]');
-        const count = cart.reduce((sum, item) => sum + item.quantity, 0);
-        setCartCount(count);
+        setCartCount(cart.length); // Count unique lines/variants in the cart
       } catch (e) {
         console.error('Failed to parse cartItems in Navbar:', e);
         setCartCount(0);
@@ -322,6 +327,9 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
     if (hash === 'cart') {
       window.location.hash = 'cart';
       if (onNavigate) onNavigate('cart');
+    } else if (hash === 'wishlist') {
+      window.location.hash = 'wishlist';
+      if (onNavigate) onNavigate('wishlist');
     } else if (hash === 'categories') {
       window.location.hash = 'categories';
       if (onNavigate) onNavigate('categories');
@@ -606,6 +614,10 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
                 <SearchIcon className="nav-search-svg" />
               </button>
 
+              <a href="#wishlist" className="nav-icon-btn" onClick={(e) => handleLinkClick(e, 'wishlist')} title="My Wishlist" aria-label="Wishlist">
+                <HeartIcon className="nav-wishlist-icon" />
+              </a>
+
               <a href="#cart" className="nav-icon-btn cart-icon" onClick={(e) => handleLinkClick(e, 'cart')} aria-label="Cart">
                 <ShoppingBagIcon className="nav-bag-icon" />
                 {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
@@ -655,7 +667,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
           <li><a href="#gifting" onClick={(e) => handleLinkClick(e, 'gifting')}>Gifting</a></li>
           <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'bestsellers')}>Best Sellers</a></li>
           <li><a href="#about" onClick={(e) => handleLinkClick(e, 'about')}>About</a></li>
-          <li><a href="#shop?category=wishlist" onClick={(e) => { setIsMobileMenuOpen(false); window.location.hash = 'shop?category=wishlist'; }}>My Wishlist</a></li>
+          <li><a href="#wishlist" onClick={(e) => handleLinkClick(e, 'wishlist')}>My Wishlist</a></li>
           
           <SignedIn>
             <div className="mobile-drawer-divider" />

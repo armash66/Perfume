@@ -22,6 +22,7 @@ function App() {
     const hash = fullHash.split('?')[0];
     const policies = ['authenticity', 'about', 'shipping', 'returns', 'terms', 'privacy'];
 
+    if (hash === 'wishlist') return 'wishlist';
     if (policies.includes(hash)) return 'policies';
     if (hash === 'profile') return 'profile';
     if (hash === 'admin') return 'admin';
@@ -37,6 +38,7 @@ function App() {
   const getCategoryFromHash = () => {
     const fullHash = window.location.hash.replace('#', '');
     const hash = fullHash.split('?')[0];
+    if (hash === 'wishlist') return 'wishlist';
     if (hash === 'shop' || hash === 'collection') {
       const params = new URLSearchParams(fullHash.split('?')[1] || '');
       return params.get('category') || 'all';
@@ -121,18 +123,10 @@ function App() {
     const handleHashChange = () => {
       const page = getPageFromHash();
       setActivePage(page);
+      setActiveCategory(getCategoryFromHash());
 
       const fullHash = window.location.hash.replace('#', '');
       const hash = fullHash.split('?')[0];
-
-      // Restore category from query parameter if present
-      if (hash === 'shop' || hash === 'collection') {
-        const params = new URLSearchParams(fullHash.split('?')[1] || '');
-        const catParam = params.get('category');
-        if (catParam) {
-          setActiveCategory(catParam);
-        }
-      }
 
       if (hash.startsWith('product-')) {
         const id = hash.replace('product-', '');
@@ -191,7 +185,7 @@ function App() {
 
       {activePage !== 'home' && (
         <div className={(activePage === 'admin' || activePage === 'cart' || activePage === 'profile' || activePage === 'gifting') ? '' : 'main-content-padding'} style={(activePage !== 'admin' && activePage !== 'cart' && activePage !== 'profile' && activePage !== 'gifting') ? { backgroundColor: '#F7F3ED' } : {}}>
-          {activePage === 'shop' && (
+          {(activePage === 'shop' || activePage === 'wishlist') && (
             <SignatureCollection
               activeCategory={activeCategory}
               onSelectCategory={setActiveCategory}

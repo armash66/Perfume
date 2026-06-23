@@ -92,22 +92,7 @@ export default function SignatureCollection({
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('recommended');
-  
-  // Luxury Filter Drawer States
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
-  const [selectedBrands, setSelectedBrands] = useState([]);
-  const [selectedFamilies, setSelectedFamilies] = useState([]);
-
-  // Extract unique brands and families from products
-  const uniqueBrands = useMemo(() => {
-    const set = new Set(products.map(p => p.brand).filter(Boolean));
-    return Array.from(set).sort();
-  }, [products]);
-
-  const uniqueFamilies = useMemo(() => {
-    const set = new Set(products.map(p => p.family).filter(Boolean));
-    return Array.from(set).sort();
-  }, [products]);
+  const [isSortOpen, setIsSortOpen] = useState(false);
 
   // Sync URL search query parameters
   useEffect(() => {
@@ -265,13 +250,12 @@ export default function SignatureCollection({
     handleCategorySelect('all');
     setSearchQuery('');
     setSortBy('recommended');
-    setSelectedBrands([]);
-    setSelectedFamilies([]);
   };
 
   // Olfactory filtering & search & sorting logic
   const filteredAndSortedItems = useMemo(() => {
     let items = [...products];
+    const initialCount = items.length;
 
     if (import.meta.env.DEV && products.length === 0) {
       console.warn('[DEVELOPMENT WARNING] SignatureCollection: No database products loaded.');
@@ -316,16 +300,7 @@ export default function SignatureCollection({
         }
       }
     }
-
-    // 1.5. Filter by brand
-    if (selectedBrands.length > 0) {
-      items = items.filter(item => selectedBrands.includes(item.brand));
-    }
-
-    // 1.6. Filter by family
-    if (selectedFamilies.length > 0) {
-      items = items.filter(item => selectedFamilies.includes(item.family));
-    }
+    const countAfterCategory = items.length;
 
     // 2. Real-time Search
     if (searchQuery.trim() !== '') {
@@ -333,13 +308,12 @@ export default function SignatureCollection({
       items = items.filter(
         item =>
           item.name.toLowerCase().includes(query) ||
-          (item.brand && item.brand.toLowerCase().includes(query)) ||
-          (item.family && item.family.toLowerCase().includes(query)) ||
           item.notes.some(note => note.toLowerCase().includes(query)) ||
           item.description.toLowerCase().includes(query) ||
           item.tagline.toLowerCase().includes(query)
       );
     }
+    const countAfterSearch = items.length;
 
     // 3. Sorting
     if (sortBy === 'price-low') {
@@ -354,9 +328,19 @@ export default function SignatureCollection({
         return bFeat - aFeat;
       });
     }
+    const countAfterSort = items.length;
+
+    console.log('[DEBUG FILTER TRACE]', {
+      totalProductsLoaded: initialCount,
+      activeCategory: currentCategory,
+      productsAfterCategoryFilter: countAfterCategory,
+      productsAfterSearchFilter: countAfterSearch,
+      productsAfterSortFilter: countAfterSort,
+      dbCategoriesCount: dbCategories.length
+    });
 
     return items;
-  }, [activeCollection, currentCategory, products, searchQuery, sortBy, dbCategories, selectedBrands, selectedFamilies]);
+  }, [activeCollection, currentCategory, products, searchQuery, sortBy, dbCategories]);
 
   // Open & Close Concierge drawer
   const openQuickView = (item) => {
@@ -373,6 +357,7 @@ export default function SignatureCollection({
   // Breadcrumb dynamic text
   const breadcrumbText = useMemo(() => {
     if (currentCategory === 'all') return 'SHOP ALL';
+    if (currentCategory === 'wishlist') return 'MY WISHLIST';
     if (currentCategory === 'decants') return 'DECANTS';
     if (currentCategory === 'fullbottles') return 'FULL BOTTLES';
     if (currentCategory === 'sets') return 'SETS';
@@ -407,31 +392,96 @@ export default function SignatureCollection({
       <div className="absolute -bottom-40 left-0 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(28,27,24,0.02)_0%,transparent_70%)] rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-[1440px] mx-auto px-[clamp(1.5rem,4vw,3.5rem)] relative z-10">
-        {/* Breadcrumb */}
-        <div className="text-[0.65rem] font-bold tracking-[0.2em] text-[#B08A50] uppercase mb-2 text-left">
-          Shop / {breadcrumbText}
-        </div>
+        {/* Category Banner or normal breadcrumbs */}
+        {(() => {
+          const activeBanner = activeCollection ? {
+            title: activeCollection.name,
+            desc: activeCollection.description,
+            image: activeCollection.imageUrl
+          } : categoryBanners[currentCategory];
+          if (activeBanner) {
+            return (
+              <div 
+                className="w-full relative overflow-hidden mb-12 rounded-3xl h-[180px] md:h-[220px] lg:h-[240px] xl:h-[280px] shadow-sm border border-black/5"
+              >
+                {/* Background image filling container */}
+                <img 
+                  src={activeBanner.image} 
+                  alt={activeBanner.title} 
+                  className="absolute inset-0 w-full h-full object-cover object-center z-0"
+                />
 
-        {/* Title & Count */}
-        <div className="flex items-baseline gap-3 mb-8 text-left">
-          <h1 className="font-heading text-3xl md:text-4xl font-light text-[#1C1B18] tracking-wide">
-            {breadcrumbText.charAt(0) + breadcrumbText.slice(1).toLowerCase()}
-          </h1>
-          <span className="text-[0.65rem] font-bold text-[#8E8A82] tracking-wider uppercase">
-            ({filteredAndSortedItems.length} {filteredAndSortedItems.length === 1 ? 'scent' : 'scents'})
-          </span>
-        </div>
+                {/* Dark premium linear gradient overlay */}
+                <div 
+                  className="absolute inset-0 z-10" 
+                  style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.75), rgba(0,0,0,0.45), rgba(0,0,0,0.20))' }}
+                />
+                
+                {/* Responsive content positioning */}
+                <div className="absolute inset-0 flex items-center px-4 sm:px-6 md:px-10 lg:px-14 z-20">
+                  <div className="max-w-[700px] text-left">
+                    {/* <div className="text-[0.65rem] sm:text-xs font-medium tracking-[0.25em] text-white/90 drop-shadow-md uppercase mb-3">
+                      HOME / CATEGORIES / {activeBanner.title.toUpperCase()}
+                    </div> */}
+                    <h2 
+                      className="font-heading text-3xl md:text-5xl lg:text-6xl font-medium text-white mb-3 leading-tight tracking-wide drop-shadow-lg"
+                      style={{
+                        color: '#FFFFFF',
+                        fontWeight: 500,
+                        textShadow: '0 2px 4px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.4)'
+                      }}
+                    >
+                      {activeBanner.title}
+                    </h2>
+                    <p 
+                      className="text-xs sm:text-sm text-white/95 max-w-2xl leading-relaxed"
+                      style={{
+                        textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+                      }}
+                    >
+                      {activeBanner.desc}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          
+          return (
+            /* Normal Breadcrumbs */
+            <div className="text-[0.6rem] font-bold tracking-[3px] text-[#B08A50] uppercase mb-3 text-left">
+              HOME / {breadcrumbText}
+            </div>
+          );
+        })()}
 
-        {/* Pills, Search, and Filter Row */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-black/8 mb-10">
-          {/* Left: Category Navigation Pills */}
-          <div className="flex flex-wrap items-center gap-1.5">
+        {/* Title Row */}
+        {currentCategory === 'wishlist' ? (
+          <div className="mb-8 text-left">
+            <h2 className="font-heading text-3xl lg:text-4xl font-light text-[#1C1B18] tracking-wide uppercase">
+              My Wishlist
+            </h2>
+            <p className="text-xs text-black/50 font-body mt-2 uppercase tracking-wider">
+              {filteredAndSortedItems.length} Saved Fragrance{filteredAndSortedItems.length !== 1 ? 's' : ''}
+            </p>
+            <div className="mt-3 h-px w-16 bg-[#B08A50]" />
+          </div>
+        ) : !categoryBanners[currentCategory] && !activeCollection && (
+          <div className="mb-8 text-left">
+            <h2 className="font-heading text-3xl lg:text-4xl font-light text-[#1C1B18] tracking-wide">
+              Fragrance Collection
+            </h2>
+            <div className="mt-3 h-px w-16 bg-[#B08A50]" />
+          </div>
+        )}
+
+        {/* Unified Control Bar (Filters on Left, Search + Sort on Right) */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-4 border-b border-[#1C1B18]/10 mb-8">
+          {/* Left: Filter Pills */}
+          <div className="flex flex-wrap items-center gap-6 md:gap-8">
             {[
-              { id: 'all', label: 'All' },
-              { id: 'bestsellers', label: 'Best Sellers' },
-              { id: 'him', label: 'For Him' },
-              { id: 'her', label: 'For Her' },
-              { id: 'sets', label: 'Sets' },
+              { id: 'all', label: 'Shop All' },
+              { id: 'decants', label: 'Decants' },
               { id: 'fullbottles', label: 'Full Bottles' },
             ].map((pill) => {
               const isActive = activePillId === pill.id;
@@ -440,42 +490,108 @@ export default function SignatureCollection({
                   key={pill.id}
                   onClick={() => handleCategorySelect(pill.id)}
                   className={`
-                    px-4 py-2 rounded-full text-[0.65rem] font-bold tracking-wider uppercase
-                    transition-all duration-300 ease-out whitespace-nowrap cursor-pointer border min-h-[38px] flex items-center justify-center
+                    py-2 text-[0.9rem] tracking-[0.08em] uppercase
+                    transition-all duration-300 ease-out whitespace-nowrap cursor-pointer min-h-[44px] flex items-center justify-center relative
                     ${isActive
-                      ? 'bg-[#1C1B18] border-[#1C1B18] text-[#FEFCF9]'
-                      : 'bg-transparent border-black/8 text-[#1C1B18] hover:bg-[#EFE8DD] hover:border-[#1C1B18]/50'
+                      ? 'text-[#1C1B18] font-medium'
+                      : 'text-[#1C1B18]/50 hover:text-[#1C1B18]'
                     }
                   `}
                 >
-                  {pill.label}
+                  <span>{pill.label}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeCategoryUnderline"
+                      className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C1B18]"
+                      transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                    />
+                  )}
                 </button>
               );
             })}
-          </div>
 
-          {/* Right: Search and Filter Controls */}
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            {/* Search Input */}
-            <div className="relative flex-1 md:flex-none">
+            {/* Clear filters */}
+            {(currentCategory !== 'all' || searchQuery !== '' || sortBy !== 'recommended') && (
+              <button
+                onClick={handleClearFilters}
+                className="text-[0.75rem] tracking-[0.08em] uppercase text-[#1C1B18]/50 hover:text-[#1C1B18] transition-colors duration-300 font-medium cursor-pointer min-h-[44px] flex items-center ml-2"
+              >
+                <span className="underline underline-offset-4">CLEAR ALL</span>
+              </button>
+            )}
+          </div>
+          {/* Right: Search + Sort controls */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6">
+            {/* Search input container */}
+            <div className="relative flex-1 sm:flex-none">
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search fragrances..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full md:w-48 pl-3 pr-8 py-2 rounded-full border border-black/8 bg-white/60 focus:bg-white focus:border-[#1C1B18] outline-none text-xs text-[#1C1B18] transition-all duration-300 min-h-[38px]"
+                className="w-full md:w-[320px] pl-0 pr-10 py-1.5 rounded-none border-b border-black/10 bg-transparent focus:border-[#1C1B18] outline-none text-xs tracking-wider text-[#1C1B18] transition-all duration-300 min-h-[44px] placeholder-black/30"
               />
-              <i className="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-[#1C1B18]/40 text-xs pointer-events-none"></i>
+              <i className="fas fa-search absolute right-2 top-1/2 -translate-y-1/2 text-[#1C1B18]/60 text-xs pointer-events-none"></i>
             </div>
 
-            {/* Filter button */}
-            <button
-              onClick={() => setIsFilterDrawerOpen(true)}
-              className="px-5 py-2 rounded-full border border-black/8 bg-transparent hover:bg-[#EFE8DD] text-[0.65rem] font-bold tracking-widest text-[#1C1B18] uppercase transition-all duration-300 cursor-pointer min-h-[38px] flex items-center gap-2"
-            >
-              <span>Filter</span>
-              <i className="fas fa-sliders-h text-[0.7rem] opacity-70"></i>
-            </button>
+            {/* Custom Sort Dropdown */}
+            <div className="relative z-30">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsSortOpen(!isSortOpen);
+                }}
+                className="flex items-center justify-between gap-3 px-0 py-1.5 bg-transparent border-b border-black/10 hover:border-black/30 transition-colors text-[0.75rem] font-medium tracking-[0.05em] text-[#1C1B18] cursor-pointer min-h-[44px]"
+              >
+                <span>
+                  {sortBy === 'recommended' && 'Recommended'}
+                  {sortBy === 'price-low' && 'Price: Low to High'}
+                  {sortBy === 'price-high' && 'Price: High to Low'}
+                </span>
+                <i className={`fas fa-chevron-down text-[8px] text-[#1C1B18]/60 transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {isSortOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setIsSortOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.15, ease: 'easeOut' }}
+                      className="absolute right-0 mt-1 w-[150px] bg-white border border-[#1C1B18]/12 shadow-sm z-20 py-1"
+                    >
+                      {[
+                        { value: 'recommended', label: 'Recommended' },
+                        { value: 'price-low', label: 'Price: Low to High' },
+                        { value: 'price-high', label: 'Price: High to Low' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => {
+                            setSortBy(opt.value);
+                            setIsSortOpen(false);
+                          }}
+                          className={`
+                            w-full text-left px-3 py-2 text-[0.75rem] font-medium cursor-pointer transition-colors duration-200
+                            ${sortBy === opt.value 
+                              ? 'bg-[#F7F3ED] text-[#1C1B18]' 
+                              : 'text-[#1C1B18]/70 hover:bg-[#F7F3ED]/40 hover:text-[#1C1B18]'
+                            }
+                          `}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
@@ -486,91 +602,244 @@ export default function SignatureCollection({
           <div className="py-20 text-center text-red-700">{collectionsError}</div>
         ) : filteredAndSortedItems.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-16">
-            {filteredAndSortedItems.map((item, itemIdx) => {
-              // Subtle Alternate Image Mixing statically
-              const hasImages = Array.isArray(item.images) && item.images.length > 1;
-              const primaryImage = hasImages
-                ? (itemIdx % 3 === 2 ? item.images[1] : item.images[0])
-                : (item.image || '/images/perfume_placeholder.jpeg');
-
-              // Format Scent Profile (e.g. Spicy • Amber)
-              const scentProfile = item.family
-                ? item.family.replace(/\s+/g, ' • ')
-                : (Array.isArray(item.notes) && item.notes.length > 0
-                  ? item.notes.slice(0, 2).join(' • ')
-                  : 'Signature • Scent');
-
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => handleProductClick(item.id)}
-                  className="group flex flex-col cursor-pointer"
-                >
-                  {/* Product Image and Badges */}
-                  <div className="relative aspect-[3/4] overflow-hidden bg-[#FEFCF9]/40 mb-4">
+            {filteredAndSortedItems.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => handleProductClick(item.id)}
+                className="
+                  group h-full flex flex-col bg-transparent rounded-none
+                  border-0 shadow-none overflow-hidden cursor-pointer
+                "
+              >
+                {/* Product Image and Badges */}
+                <div className="relative aspect-[4/5] overflow-hidden bg-[#F7F3ED]/30">
+                  {item.image ? (
                     <img
-                      src={primaryImage}
+                      src={item.image}
                       alt={item.name}
                       loading="lazy"
                       decoding="async"
-                      className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-103"
+                      className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-102"
                     />
-
-                    {/* Small Uppercase Badge System */}
-                    <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 pointer-events-none items-start">
-                      {item.tags && item.tags.includes('new-arrival') && (
-                        <span className="text-[0.55rem] font-bold tracking-wider uppercase bg-[#1C1B18] text-white px-2 py-0.5 shadow-sm">
-                          NEW
-                        </span>
-                      )}
-                      {item.tags && item.tags.includes('featured') && (
-                        <span className="text-[0.55rem] font-bold tracking-wider uppercase bg-[#B08A50] text-white px-2 py-0.5 shadow-sm">
-                          BESTSELLER
-                        </span>
-                      )}
-                      {item.tags && (item.tags.includes('limited') || item.tags.includes('low-stock')) && (
-                        <span className="text-[0.55rem] font-bold tracking-wider uppercase bg-black text-white px-2 py-0.5 shadow-sm">
-                          LIMITED
-                        </span>
-                      )}
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-[#F1ECE4] relative group-hover:scale-102 transition-transform duration-700 ease-out">
+                      <div className="text-4xl md:text-5xl font-heading text-[#B08A50] font-light tracking-widest border border-[#B08A50]/20 rounded-full w-20 h-20 flex items-center justify-center bg-white/40 shadow-inner">
+                        {item.name ? item.name.charAt(0).toUpperCase() : 'A'}
+                      </div>
+                      <div className="text-[0.65rem] tracking-[0.2em] font-body text-[#B08A50]/80 uppercase mt-4 font-semibold">
+                        {item.brand || 'Decant Atelier'}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Product Metadata Info block */}
-                  <div className="flex flex-col text-left">
-                    {/* Brand */}
-                    <span className="text-[0.58rem] font-bold tracking-[0.18em] text-[#8E8A82] uppercase mb-1.5">
-                      {item.brand || 'Decant Atelier'}
-                    </span>
+                  {/* Wishlist Heart Icon Button */}
+                  <button
+                    onClick={(e) => toggleWishlist(item.id, e)}
+                    className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm border border-black/5 flex items-center justify-center text-[#1C1B18] hover:text-[#FF003C] hover:bg-white transition-all duration-300 shadow-sm cursor-pointer"
+                    aria-label="Toggle wishlist"
+                  >
+                    <i className={`${wishlist.includes(item.id) ? 'fas fa-heart text-[#FF003C]' : 'far fa-heart'}`} />
+                  </button>
 
-                    {/* Product Title */}
-                    <h3 className="font-heading text-xs font-normal text-[#1C1B18] mb-1.5 tracking-wide leading-tight group-hover:text-[#B08A50] transition-colors duration-300 line-clamp-1">
-                      {item.name}
-                    </h3>
-
-                    {/* Scent Profile */}
-                    <div className="text-[0.65rem] font-normal text-black/50 tracking-wide mb-1.5 uppercase">
-                      {scentProfile}
-                    </div>
-
-                    {/* Price */}
-                    <span className="text-xs font-medium text-[#1C1B18]">
-                      ₹{item.price.toLocaleString('en-IN')}
-                    </span>
+                  {/* Overlays Badges */}
+                  <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 pointer-events-none items-start">
+                    {item.tags && item.tags.includes('featured') && (
+                      <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase text-[#B08A50] bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5">
+                        BESTSELLER
+                      </span>
+                    )}
+                    {item.tags && item.tags.includes('new-arrival') && (
+                      <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase text-[#1C1B18] bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5">
+                        NEW
+                      </span>
+                    )}
+                    {item.tags && item.tags.includes('low-stock') && (
+                      <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase text-[#E67E22] bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5">
+                        LIMITED
+                      </span>
+                    )}
+                    {item.tags && item.tags.includes('out-of-stock') && (
+                      <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase text-[#FF003C] bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5">
+                        SOLD OUT
+                      </span>
+                    )}
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Info block */}
+                <div className="pt-4 flex flex-col flex-1">
+                  {/* Brand / Category Badge */}
+                  <span className="text-[0.6rem] tracking-[0.15em] text-[#B08A50] uppercase font-bold text-left block mb-1">
+                    {item.category === 'sets' ? 'CURATED SET' : (item.brand || 'FRAGRANCE')}
+                  </span>
+
+                  {/* Product Title */}
+                  <h3 className="font-heading text-[0.95rem] font-light text-[#1C1B18] mb-1 tracking-wide leading-tight group-hover:text-[#B08A50] transition-colors duration-300 line-clamp-1 text-left">
+                    {item.name}
+                  </h3>
+
+                  {/* Scent Profile notes */}
+                  {item.notes && item.notes.length > 0 && (
+                    <div className="text-[0.7rem] text-[#1C1B18]/60 text-left font-light tracking-wide mb-1.5 font-body">
+                      {item.notes.slice(0, 2).join(' • ')}
+                    </div>
+                  )}
+
+                  {/* Selected size price */}
+                  <div className="text-xs font-semibold text-[#1C1B18] mb-3 text-left">
+                    ₹{(() => {
+                      const idx = getCardSizeIndex(item.id);
+                      const priceVal = item.sizes && item.sizes[idx] ? item.sizes[idx].price : item.price;
+                      return priceVal.toLocaleString('en-IN');
+                    })()}
+                  </div>
+
+                  {/* Size selectors */}
+                  <div className="min-h-[36px] mb-4 flex items-center justify-start overflow-visible">
+                    {item.sizes && item.sizes.length > 0 ? (
+                      <div className="flex flex-wrap gap-5 py-1 items-center w-full overflow-visible">
+                        {item.sizes.map((sz, idx) => {
+                          const isSelected = getCardSizeIndex(item.id) === idx;
+                          const sizeLabel = sz.size.split(' ')[0].toUpperCase();
+                          const isOutOfStock = item.tags && item.tags.includes('out-of-stock');
+                          
+                          if (isOutOfStock) {
+                            return (
+                              <button
+                                key={idx}
+                                disabled
+                                className="relative py-1 text-[0.68rem] tracking-widest font-normal text-black/30 select-none cursor-not-allowed uppercase transition-colors duration-300 focus:outline-none"
+                                style={{ textDecoration: 'line-through' }}
+                              >
+                                {sizeLabel}
+                              </button>
+                            );
+                          }
+                          
+                          return (
+                            <button
+                              key={idx}
+                              onClick={(e) => handleSelectCardSize(item.id, idx, e)}
+                              className="relative py-1 text-[0.68rem] tracking-widest uppercase cursor-pointer select-none focus:outline-none transition-colors duration-300 min-h-[32px] flex items-center justify-center focus-visible:ring-1 focus-visible:ring-black/10 focus-visible:outline-none"
+                            >
+                              <span className={`transition-colors duration-300 ${
+                                isSelected
+                                  ? 'text-[#1C1B18] font-medium'
+                                  : 'text-[#737373] hover:text-[#1C1B18]'
+                              }`}>
+                                {sizeLabel}
+                              </span>
+                              {isSelected && (
+                                <motion.div
+                                  layoutId={`activeCardSizeUnderline-${item.id}`}
+                                  className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#1C1B18]"
+                                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                                />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="h-0" />
+                    )}
+                  </div>
+
+                  {/* Add to Cart / Sold Out / Quantity Adjuster Button */}
+                  {(() => {
+                    const isOutOfStock = item.tags && item.tags.includes('out-of-stock');
+                    const isAdding = addingItemId === item.id;
+                    const sizeIdx = getCardSizeIndex(item.id);
+                    const selectedOption = item.sizes && item.sizes[sizeIdx] ? item.sizes[sizeIdx] : { size: 'Default' };
+                    
+                    if (isOutOfStock) {
+                      return (
+                        <button
+                          disabled
+                          className="w-full py-2.5 rounded-none border border-black/5 bg-black/5 text-black/30 text-[0.65rem] font-bold tracking-widest uppercase text-center cursor-not-allowed mt-auto min-h-[44px]"
+                        >
+                          SOLD OUT
+                        </button>
+                      );
+                    }
+
+                    // Check if item is already in the cart with this size
+                    const cartItem = cartItems.find(ci => ci.id === item.id && ci.size === selectedOption.size);
+                    if (cartItem) {
+                      return (
+                        <div className="flex items-center justify-between gap-2 mt-auto w-full min-h-[44px]">
+                          <button
+                            onClick={(e) => handleUpdateQuantity(item, selectedOption, cartItem.quantity - 1, e)}
+                            className="w-10 h-10 rounded-none border border-[#1C1B18]/15 hover:border-[#1C1B18] flex items-center justify-center text-sm text-[#1C1B18] transition-all duration-300 bg-transparent cursor-pointer font-bold"
+                            aria-label="Decrease quantity"
+                          >
+                            -
+                          </button>
+                          <span className="font-semibold text-[0.65rem] tracking-wider uppercase text-[#1C1B18] text-center flex-1">
+                            {cartItem.quantity} IN BAG
+                          </span>
+                          <button
+                            onClick={(e) => handleUpdateQuantity(item, selectedOption, cartItem.quantity + 1, e)}
+                            className="w-10 h-10 rounded-none border border-[#1C1B18]/15 hover:border-[#1C1B18] flex items-center justify-center text-sm text-[#1C1B18] transition-all duration-300 bg-transparent cursor-pointer font-bold"
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <button
+                        onClick={(e) => handleCardAddToCart(item, selectedOption, e)}
+                        disabled={isAdding}
+                        className={`
+                          w-full py-2.5 rounded-none border text-[0.65rem] font-bold tracking-widest uppercase transition-all duration-300 mt-auto cursor-pointer min-h-[44px]
+                          ${isAdding
+                            ? 'bg-[#1C1B18] text-white border-[#1C1B18]'
+                            : 'bg-transparent border-[#1C1B18] text-[#1C1B18] hover:bg-[#1C1B18] hover:text-white'
+                          }
+                        `}
+                      >
+                        {isAdding ? (
+                          <span className="flex items-center justify-center gap-1.5">
+                            <i className="fas fa-spinner animate-spin"></i>
+                            ADDING...
+                          </span>
+                        ) : (
+                          'ADD TO CART'
+                        )}
+                      </button>
+                    );
+                  })()}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : currentCategory === 'wishlist' ? (
+          <div className="text-center py-24 bg-[#FEFCF9] border border-black/5 rounded-none p-10 shadow-sm max-w-xl mx-auto">
+            <i className="far fa-heart text-[#B08A50] text-5xl mb-4 block"></i>
+            <h4 className="font-heading text-xl font-light text-[#1C1B18] mb-2 uppercase tracking-wide">Your wishlist is empty.</h4>
+            <p className="text-xs text-black/50 leading-relaxed mb-6 font-body">
+              Explore our boutique decants and curate your personal fragrance wishlist.
+            </p>
+            <button
+              onClick={() => { window.location.hash = 'collection'; }}
+              className="px-6 py-3 rounded-none bg-[#1C1B18] text-white hover:bg-[#B08A50] text-[0.7rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer shadow-sm"
+            >
+              DISCOVER SCENTS
+            </button>
           </div>
         ) : (
-          <div className="text-center py-24 p-10">
+          <div className="text-center py-24 bg-white/40 border border-black/5 rounded-none p-10 shadow-sm">
+            <i className="fas fa-search text-black/10 text-5xl mb-4"></i>
             <h4 className="font-heading text-xl font-light text-[#1C1B18] mb-2">No Scents Found</h4>
             <p className="text-xs text-black/40 font-body">
               Try adjusting your filters, search term, or sorting option.
             </p>
             <button
               onClick={handleClearFilters}
-              className="mt-6 px-6 py-2.5 bg-[#1C1B18] text-white hover:bg-[#B08A50] text-[0.65rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer"
+              className="mt-6 px-6 py-3 rounded-none bg-[#1C1B18] text-white hover:bg-[#B08A50] text-[0.7rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer shadow-sm"
             >
               Reset Filters
             </button>
@@ -753,166 +1022,6 @@ export default function SignatureCollection({
                     <span>Purchase Scent</span>
                   </button>
                 </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-      {/* Filter Drawer Panel Overlay */}
-      <AnimatePresence>
-        {isFilterDrawerOpen && (
-          <>
-            {/* Backdrop overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsFilterDrawerOpen(false)}
-              className="fixed inset-0 bg-black/35 backdrop-blur-sm z-50"
-            />
-
-            {/* Slide-over Filter Panel */}
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 220 }}
-              className="
-                fixed top-0 bottom-0 right-0 w-full max-w-[380px] bg-[#FEFCF9] z-50
-                shadow-2xl flex flex-col h-full border-l border-black/8
-              "
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-black/8">
-                <span className="text-[0.68rem] font-bold tracking-[3px] uppercase text-[#1C1B18]">
-                  Filter & Sort
-                </span>
-                <button
-                  onClick={() => setIsFilterDrawerOpen(false)}
-                  aria-label="Close filters"
-                  className="
-                    group w-8 h-8 rounded-full bg-black/5 hover:bg-[#1C1B18]
-                    flex items-center justify-center text-[#1C1B18] hover:text-white
-                    transition-all duration-300 cursor-pointer
-                  "
-                >
-                  <CloseIcon className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                {/* Sort Section */}
-                <div>
-                  <h4 className="text-[0.68rem] font-bold uppercase tracking-wider text-[#1C1B18] mb-3">
-                    Sort By
-                  </h4>
-                  <div className="space-y-2">
-                    {[
-                      { id: 'recommended', label: 'Recommended' },
-                      { id: 'price-low', label: 'Price: Low to High' },
-                      { id: 'price-high', label: 'Price: High to Low' },
-                    ].map((option) => {
-                      const isSelected = sortBy === option.id;
-                      return (
-                        <button
-                          key={option.id}
-                          onClick={() => setSortBy(option.id)}
-                          className={`
-                            w-full text-left py-2.5 px-4 text-xs font-normal tracking-wide transition-all duration-200 cursor-pointer border
-                            ${isSelected
-                              ? 'bg-[#1C1B18] border-[#1C1B18] text-[#FEFCF9]'
-                              : 'bg-white border-black/8 text-[#1C1B18] hover:bg-[#EFE8DD]'
-                            }
-                          `}
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Brand Filter Section */}
-                <div>
-                  <h4 className="text-[0.68rem] font-bold uppercase tracking-wider text-[#1C1B18] mb-3">
-                    Filter by Brand
-                  </h4>
-                  <div className="max-h-[160px] overflow-y-auto pr-2 space-y-2 border border-black/5 p-3 bg-white">
-                    {uniqueBrands.map((brand) => {
-                      const isChecked = selectedBrands.includes(brand);
-                      return (
-                        <label key={brand} className="flex items-center gap-2.5 text-xs text-[#1C1B18] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              setSelectedBrands(prev =>
-                                isChecked
-                                  ? prev.filter(b => b !== brand)
-                                  : [...prev, brand]
-                              );
-                            }}
-                            className="w-3.5 h-3.5 accent-[#1C1B18]"
-                          />
-                          <span>{brand}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Family Filter Section */}
-                <div>
-                  <h4 className="text-[0.68rem] font-bold uppercase tracking-wider text-[#1C1B18] mb-3">
-                    Filter by Family
-                  </h4>
-                  <div className="max-h-[160px] overflow-y-auto pr-2 space-y-2 border border-black/5 p-3 bg-white">
-                    {uniqueFamilies.map((family) => {
-                      const isChecked = selectedFamilies.includes(family);
-                      return (
-                        <label key={family} className="flex items-center gap-2.5 text-xs text-[#1C1B18] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              setSelectedFamilies(prev =>
-                                isChecked
-                                  ? prev.filter(f => f !== family)
-                                  : [...prev, family]
-                              );
-                            }}
-                            className="w-3.5 h-3.5 accent-[#1C1B18]"
-                          />
-                          <span>{family}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-black/8 bg-[#F7F3ED]/50 flex gap-3">
-                {(selectedBrands.length > 0 || selectedFamilies.length > 0 || sortBy !== 'recommended') && (
-                  <button
-                    onClick={() => {
-                      setSelectedBrands([]);
-                      setSelectedFamilies([]);
-                      setSortBy('recommended');
-                      setIsFilterDrawerOpen(false);
-                    }}
-                    className="flex-1 py-3 text-center border border-[#1C1B18] text-[#1C1B18] hover:bg-[#1C1B18] hover:text-white text-[0.65rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer"
-                  >
-                    Clear All
-                  </button>
-                )}
-                <button
-                  onClick={() => setIsFilterDrawerOpen(false)}
-                  className="flex-1 py-3 text-center bg-[#1C1B18] border border-[#1C1B18] text-white hover:bg-[#B08A50] hover:border-[#B08A50] text-[0.65rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer"
-                >
-                  Apply
-                </button>
               </div>
             </motion.div>
           </>
