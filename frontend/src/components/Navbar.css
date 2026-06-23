@@ -309,8 +309,7 @@ body.marquee-hidden .main-content-padding {
   position: fixed;
   top: 0;
   right: 0;
-  width: 100vw;
-  max-width: 100%;
+  width: min(92vw, 380px);
   height: 100dvh;
   background: #F7F3ED;
   z-index: 1300;
@@ -325,6 +324,7 @@ body.marquee-hidden .main-content-padding {
 
 .mobile-menu.open {
   transform: translateX(0);
+  box-shadow: -10px 0 40px rgba(27, 26, 23, 0.15);
 }
 
 .mobile-menu-header {
@@ -1143,6 +1143,7 @@ body.marquee-hidden .main-content-padding {
     max-width: 65%;
     display: flex;
     justify-content: center;
+    z-index: 10;
   }
   .brand-name {
     font-size: 0.88rem !important;
@@ -1164,7 +1165,7 @@ body.marquee-hidden .main-content-padding {
     min-width: 44px;
   }
   .nav-right {
-    min-width: 44px;
+    min-width: 88px;
     gap: 0px;
     display: flex;
     justify-content: flex-end;
@@ -1172,8 +1173,7 @@ body.marquee-hidden .main-content-padding {
   .nav-icons {
     gap: 0px;
   }
-  .nav-profile-btn,
-  .cart-icon {
+  .nav-profile-btn {
     display: none !important;
   }
   .nav-icon-btn {
@@ -1183,17 +1183,26 @@ body.marquee-hidden .main-content-padding {
 }
 
 /* Extra small mobile adjustments to prevent any overlaps */
-@media (max-width: 400px) {
+@media (max-width: 375px) {
   .brand-name {
-    font-size: 0.78rem !important;
-    letter-spacing: 0.1em !important;
+    font-size: 0.8rem !important;
+    letter-spacing: 0.12em !important;
+  }
+  .nav-container {
+    padding: 0 8px;
+  }
+  .logo-container {
+    max-width: 50%;
   }
 }
 
 @media (max-width: 340px) {
   .brand-name {
-    font-size: 0.72rem !important;
-    letter-spacing: 0.08em !important;
+    font-size: 0.68rem !important;
+    letter-spacing: 0.06em !important;
+  }
+  .nav-container {
+    padding: 0 6px;
   }
 }
 
