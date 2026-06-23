@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collectionsData } from './SignatureCollection/CollectionData';
 import './Navbar.css';
 
 const ShoppingBagIcon = ({ className }) => (
@@ -66,6 +65,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
   const [activeSearchTab, setActiveSearchTab] = useState('all');
   const [isMobileShopOpen, setIsMobileShopOpen] = useState(false);
   const [isMobileCollectionsOpen, setIsMobileCollectionsOpen] = useState(false);
@@ -97,8 +97,6 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
   const searchInputRef = useRef(null);
   const searchContainerRef = useRef(null);
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
   const [recentSearches, setRecentSearches] = useState([]);
 
   // Load recent searches from localStorage
@@ -137,28 +135,6 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
-
-  useEffect(() => {
-    if (debouncedQuery.trim() === '') {
-      setSearchResults([]);
-      return;
-    }
-    async function fetchSearch() {
-      setSearching(true);
-      try {
-        const res = await fetch(`http://localhost:5000/api/products?search=${encodeURIComponent(debouncedQuery)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setSearchResults(data);
-        }
-      } catch (err) {
-        console.error('Search failed:', err);
-      } finally {
-        setSearching(false);
-      }
-    }
-    fetchSearch();
-  }, [debouncedQuery]);
 
   useEffect(() => {
     if (isSearchOpen) {
@@ -326,8 +302,14 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
 
   useEffect(() => {
     const syncCart = () => {
-      const count = parseInt(localStorage.getItem('cartCount') || '0');
-      setCartCount(count);
+      try {
+        const cart = JSON.parse(localStorage.getItem('cartItems') || '[]');
+        const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+        setCartCount(count);
+      } catch (e) {
+        console.error('Failed to parse cartItems in Navbar:', e);
+        setCartCount(0);
+      }
     };
     syncCart();
     window.addEventListener('cart-updated', syncCart);
@@ -389,80 +371,59 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
     window.location.hash = `product-${product.slug || product.id}`;
   };
 
-  // Calculate counts dynamically from products
-  const searchCounts = useMemo(() => {
-    let baseList = [];
-    if (debouncedQuery.trim() !== '') {
-      baseList = searchResults;
-    } else {
-      const allProds = products.length > 0 ? products : collectionsData;
-      baseList = allProds.filter(p => p.featured || (p.tags && p.tags.includes('featured')));
-    }
-    return {
-      all: baseList.length,
-      best: baseList.filter(p => p.unitsSold > 0 || (p.tags && p.tags.includes('featured'))).length,
-      new: baseList.filter(p => p.tags && p.tags.includes('new-arrival')).length,
-      featured: baseList.filter(p => p.featured || (p.tags && p.tags.includes('featured'))).length
-    };
-  }, [searchResults, debouncedQuery, products]);
-
+  // Smart client-side search: matches name, brand, family, notes, tags/occasions
   const filteredProducts = useMemo(() => {
-    let baseList = [];
-    if (debouncedQuery.trim() !== '') {
-      baseList = searchResults;
-    } else {
-      // Show featured products when empty
-      const allProds = products.length > 0 ? products : collectionsData;
-      baseList = allProds.filter(p => p.featured || (p.tags && p.tags.includes('featured')));
-    }
-
-    if (activeSearchTab === 'best') {
-      baseList = baseList.filter(p => p.unitsSold > 0 || (p.tags && p.tags.includes('featured')));
-    } else if (activeSearchTab === 'new') {
-      baseList = baseList.filter(p => p.tags && p.tags.includes('new-arrival'));
-    } else if (activeSearchTab === 'featured') {
-      baseList = baseList.filter(p => p.featured || (p.tags && p.tags.includes('featured')));
-    }
-
-    return baseList;
-  }, [searchResults, debouncedQuery, products, activeSearchTab]);
-
-  const matchingBrands = useMemo(() => {
-    if (!debouncedQuery) return [];
     const q = debouncedQuery.toLowerCase().trim();
-    const brandsSet = new Set();
-    collectionsData.forEach(p => {
-      if (p.brand && p.brand.toLowerCase().includes(q)) {
-        brandsSet.add(p.brand);
-      }
+    if (!q) return [];
+    return products.filter(p => {
+      if (p.name && p.name.toLowerCase().includes(q)) return true;
+      if (p.brand && p.brand.toLowerCase().includes(q)) return true;
+      if (p.family && p.family.toLowerCase().includes(q)) return true;
+      if (p.tagline && p.tagline.toLowerCase().includes(q)) return true;
+      if (Array.isArray(p.notes) && p.notes.some(n => n.toLowerCase().includes(q))) return true;
+      if (Array.isArray(p.tags) && p.tags.some(t => t.toLowerCase().includes(q))) return true;
+      if (p.description && p.description.toLowerCase().includes(q)) return true;
+      return false;
     });
-    return Array.from(brandsSet).slice(0, 5);
-  }, [debouncedQuery]);
+  }, [debouncedQuery, products]);
 
-  const matchingCategories = useMemo(() => {
-    if (!debouncedQuery) return [];
-    const q = debouncedQuery.toLowerCase().trim();
-    const catsSet = new Set();
-    const popularCats = ['Fresh', 'Woody', 'Floral', 'Spicy', 'Sweet', 'Citrus', 'Amber', 'Warm'];
-    popularCats.forEach(c => {
-      if (c.toLowerCase().includes(q)) {
-        catsSet.add(c);
-      }
-    });
-    collectionsData.forEach(p => {
-      if (p.category && p.category.toLowerCase().includes(q)) {
-        catsSet.add(p.category.charAt(0).toUpperCase() + p.category.slice(1));
-      }
-      if (p.tags) {
-        p.tags.forEach(t => {
-          if (t.toLowerCase().includes(q)) {
-            catsSet.add(t.charAt(0).toUpperCase() + t.slice(1));
-          }
-        });
-      }
-    });
-    return Array.from(catsSet).slice(0, 5);
-  }, [debouncedQuery]);
+  const handleViewAllResults = () => {
+    setIsSearchOpen(false);
+    const encoded = encodeURIComponent(searchQuery.trim());
+    window.location.hash = encoded ? `shop?search=${encoded}` : 'shop';
+    setSearchQuery('');
+  };
+
+  const mobileSearchResults = useMemo(() => {
+    if (!mobileSearchQuery.trim()) return { products: [], brands: [], notes: [] };
+    const q = mobileSearchQuery.toLowerCase().trim();
+    
+    // Filter matching products
+    const matchedProducts = products.filter(p => 
+      p.name.toLowerCase().includes(q) || 
+      (p.brand && p.brand.toLowerCase().includes(q))
+    ).slice(0, 5);
+
+    // Filter matching brands
+    const matchedBrands = Array.from(new Set(
+      products
+        .filter(p => p.brand && p.brand.toLowerCase().includes(q))
+        .map(p => p.brand)
+    )).slice(0, 3);
+
+    // Filter matching notes
+    const matchedNotes = Array.from(new Set(
+      products
+        .flatMap(p => p.notes || [])
+        .filter(note => note.toLowerCase().includes(q))
+    )).slice(0, 5);
+
+    return {
+      products: matchedProducts,
+      brands: matchedBrands,
+      notes: matchedNotes
+    };
+  }, [mobileSearchQuery, products]);
 
   const activeShopInfo = useMemo(() => {
     return hoveredShopIndex !== null && hoveredShopIndex >= 0 && !shopMenuItems[hoveredShopIndex].isDivider
@@ -695,6 +656,113 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
             <i className="fas fa-times" />
           </button>
         </div>
+
+        {/* Integrated Mobile Search */}
+        <div className="mobile-search-section">
+          <div className="mobile-search-input-container">
+            <SearchIcon className="mobile-search-icon" />
+            <input
+              type="text"
+              placeholder="Search scents, brands, notes..."
+              value={mobileSearchQuery}
+              onChange={(e) => setMobileSearchQuery(e.target.value)}
+              className="mobile-search-input"
+            />
+            {mobileSearchQuery && (
+              <button 
+                onClick={() => setMobileSearchQuery('')} 
+                className="mobile-search-clear"
+                aria-label="Clear mobile search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* Inline search results */}
+          {mobileSearchQuery.trim() !== '' && (
+            <div className="mobile-search-results scrollbar-hide">
+              {mobileSearchResults.brands.length > 0 && (
+                <div className="mobile-search-group">
+                  <span className="mobile-search-group-title">Brands</span>
+                  <div className="mobile-search-pills">
+                    {mobileSearchResults.brands.map(brand => (
+                      <button
+                        key={brand}
+                        onClick={(e) => {
+                          setMobileSearchQuery('');
+                          setIsMobileMenuOpen(false);
+                          window.location.hash = `collection?search=${encodeURIComponent(brand)}`;
+                        }}
+                        className="mobile-search-pill"
+                      >
+                        {brand}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {mobileSearchResults.notes.length > 0 && (
+                <div className="mobile-search-group">
+                  <span className="mobile-search-group-title">Olfactory Notes</span>
+                  <div className="mobile-search-pills">
+                    {mobileSearchResults.notes.map(note => (
+                      <button
+                        key={note}
+                        onClick={() => {
+                          setMobileSearchQuery('');
+                          setIsMobileMenuOpen(false);
+                          window.location.hash = `collection?search=${encodeURIComponent(note)}`;
+                        }}
+                        className="mobile-search-pill"
+                      >
+                        {note}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {mobileSearchResults.products.length > 0 ? (
+                <div className="mobile-search-group">
+                  <span className="mobile-search-group-title">Fragrances</span>
+                  <div className="mobile-search-products-list">
+                    {mobileSearchResults.products.map(product => (
+                      <div
+                        key={product.id}
+                        onClick={() => {
+                          setMobileSearchQuery('');
+                          setIsMobileMenuOpen(false);
+                          window.location.hash = `product-${product.slug || product.id}`;
+                        }}
+                        className="mobile-search-product-item"
+                      >
+                        <img 
+                          src={product.image || '/images/perfume_placeholder.jpeg'} 
+                          alt={product.name} 
+                          className="mobile-search-product-img"
+                        />
+                        <div className="mobile-search-product-info">
+                          <span className="mobile-search-product-brand">{product.brand}</span>
+                          <span className="mobile-search-product-name">{product.name}</span>
+                        </div>
+                        <span className="mobile-search-product-price">₹{product.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                mobileSearchResults.brands.length === 0 && mobileSearchResults.notes.length === 0 && (
+                  <div className="mobile-search-empty">
+                    No matching scents found.
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+
         <ul className="mobile-nav-list">
           <li>
             <button className={`mobile-accordion ${isMobileShopOpen ? 'expanded' : ''}`} onClick={() => setIsMobileShopOpen(!isMobileShopOpen)}>
@@ -727,17 +795,42 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
           <li><a href="#reviews" onClick={(e) => handleLinkClick(e, 'reviews')}>Reviews</a></li>
           <li><a href="#contact" onClick={(e) => handleLinkClick(e, 'contact')}>Contact</a></li>
         </ul>
+
+        {/* Mobile Quick Actions at Bottom */}
+        <div className="mobile-menu-actions">
+          <SignedIn>
+            <a href="#profile" className="mobile-action-btn" onClick={(e) => handleLinkClick(e, 'profile')}>
+              <UserIcon className="mobile-action-icon" />
+              <span>Profile</span>
+            </a>
+          </SignedIn>
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="mobile-action-btn" onClick={() => setIsMobileMenuOpen(false)}>
+                <UserIcon className="mobile-action-icon" />
+                <span>Login</span>
+              </button>
+            </SignInButton>
+          </SignedOut>
+          <a href="#cart" className="mobile-action-btn" onClick={(e) => handleLinkClick(e, 'cart')}>
+            <div className="mobile-cart-badge-wrapper">
+              <ShoppingBagIcon className="mobile-action-icon" />
+              {cartCount > 0 && <span className="mobile-cart-count">{cartCount}</span>}
+            </div>
+            <span>Bag</span>
+          </a>
+        </div>
       </div>
 
-      {/* Search Overlay */}
+      {/* ─── Search Overlay — Spotlight / Raycast Style ─── */}
       <AnimatePresence>
         {isSearchOpen && (
-          <motion.div 
+          <motion.div
             className="search-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
             role="dialog"
             aria-modal="true"
             aria-label="Search fragrances"
@@ -748,71 +841,75 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
               }
             }}
           >
-            <button 
-              className="search-close" 
-              onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
-              aria-label="Close search"
-            >
-              <i className="fas fa-times" />
-            </button>
-
-            <div 
-              className="search-container max-w-[1600px] w-full mx-auto px-5 md:px-8 lg:px-10 py-16"
-              ref={searchContainerRef} 
+            <motion.div
+              className="search-container"
+              initial={{ opacity: 0, y: -16, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.97 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              ref={searchContainerRef}
               onKeyDown={handleSearchKeyDown}
             >
-              {/* Luxury Search Header */}
-              <div className="text-center mb-10 mt-12 select-none">
-                <h2 className="font-heading font-light text-3xl md:text-4xl lg:text-5xl text-neutral-900 mb-2">
-                  Discover Fragrances
-                </h2>
-                <p className="font-body font-light text-xs md:text-sm text-neutral-500">
-                  Search by fragrance, brand, note, or collection.
-                </p>
-              </div>
 
-              {/* Redesigned Search Input */}
-              <div className="max-w-4xl w-full mx-auto relative mb-10">
-                <svg className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-neutral-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+              {/* ── Panel Header: search input ── */}
+              <div className="search-header-container">
+                <svg className="search-input-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
+
                 <input
                   ref={searchInputRef}
+                  id="search-input-field"
                   type="text"
-                  className="w-full h-[72px] rounded-full bg-white border border-neutral-200 pl-16 pr-16 text-neutral-800 text-lg md:text-xl shadow-sm outline-none hover:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all duration-300 font-body font-light tracking-wide"
-                  placeholder="Search fragrances..."
+                  className="search-input-field"
+                  placeholder="Search fragrances, notes, occasions…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
                       addRecentSearch(searchQuery);
+                      handleViewAllResults();
                     }
                   }}
                   autoFocus
+                  autoComplete="off"
+                  spellCheck={false}
                 />
+
                 {searchQuery && (
                   <button
+                    className="search-clear-btn"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-6 top-1/2 -translate-y-1/2 text-2xl text-neutral-400 hover:text-neutral-800 transition-colors cursor-pointer bg-transparent border-none p-0 flex items-center justify-center w-8 h-8 rounded-full"
-                    aria-label="Clear search query"
+                    aria-label="Clear search"
                   >
                     ×
                   </button>
                 )}
+
+                <button
+                  className="search-close-panel-btn"
+                  onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
+                  aria-label="Close search"
+                >
+                  ESC
+                </button>
               </div>
-              
-              <div className="search-body">
+
+              {/* ── Panel Body ── */}
+              <div className="search-panel-body">
+
                 {searchQuery.trim() === '' ? (
-                  /* Discovery State when Query is Empty */
-                  <div className="space-y-10">
+                  /* ── Empty state: Popular Searches + Browse by Family ── */
+                  <>
+                    {/* Recent searches (if any) */}
                     {recentSearches.length > 0 && (
-                      <div className="search-section mt-8">
-                        <h4 className="search-section-title">Recent Searches</h4>
-                        <div className="search-pills flex flex-wrap gap-3">
+                      <div style={{ marginBottom: '1.75rem' }}>
+                        <span className="search-panel-section-title">Recent</span>
+                        <div className="search-pills-list">
                           {recentSearches.map(term => (
-                            <button 
-                              key={term} 
-                              className="rounded-full border border-neutral-200 px-5 py-2 bg-white text-xs md:text-sm text-neutral-700 hover:bg-black hover:text-white transition-all duration-300 cursor-pointer font-body" 
+                            <button
+                              key={term}
+                              className="search-pill-item"
                               onClick={() => handleTermClick(term)}
                             >
                               {term}
@@ -821,14 +918,15 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
                         </div>
                       </div>
                     )}
-                    
-                    <div className="search-section mt-8">
-                      <h4 className="search-section-title">Trending Searches</h4>
-                      <div className="search-pills flex flex-wrap gap-3">
-                        {['Bleu de Chanel', 'Yara', 'Khamrah', 'Spicebomb', 'Baccarat Rouge'].map(term => (
-                          <button 
-                            key={term} 
-                            className="rounded-full border border-neutral-200 px-5 py-2 bg-white text-xs md:text-sm text-neutral-700 hover:bg-black hover:text-white transition-all duration-300 cursor-pointer font-body" 
+
+                    {/* Popular searches */}
+                    <div style={{ marginBottom: '1.75rem' }}>
+                      <span className="search-panel-section-title">Popular Searches</span>
+                      <div className="search-pills-list">
+                        {['Baccarat Rouge 540', 'Hawas', 'Khamrah', 'Bleu de Chanel', '9PM'].map(term => (
+                          <button
+                            key={term}
+                            className="search-pill-item"
                             onClick={() => handleTermClick(term)}
                           >
                             {term}
@@ -837,177 +935,100 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
                       </div>
                     </div>
 
-                    <div className="search-section mt-12">
-                      <h4 className="search-section-title">Featured Categories</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {['Fresh', 'Woody', 'Amber', 'Floral', 'Sweet'].map(cat => (
-                          <div 
-                            key={cat} 
-                            className="group rounded-3xl bg-white border border-neutral-200/60 p-6 hover:-translate-y-1 hover:shadow-md transition-all duration-300 select-none text-center cursor-pointer"
-                            onClick={() => handleTermClick(cat)}
+                    {/* Browse by Family */}
+                    <div>
+                      <span className="search-panel-section-title">Browse by Family</span>
+                      <div className="search-family-grid">
+                        {[
+                          { name: 'Woody', sub: 'Warm & Grounded' },
+                          { name: 'Amber', sub: 'Rich & Sensual' },
+                          { name: 'Fresh', sub: 'Clean & Bright' },
+                          { name: 'Citrus', sub: 'Zesty & Uplifting' },
+                          { name: 'Gourmand', sub: 'Sweet & Edible' },
+                          { name: 'Floral', sub: 'Delicate & Romantic' },
+                        ].map(({ name, sub }) => (
+                          <button
+                            key={name}
+                            className="search-family-card"
+                            onClick={() => handleTermClick(name)}
                           >
-                            <span className="font-heading font-medium text-lg text-neutral-800 group-hover:text-amber-700 transition-colors duration-300">
-                              {cat}
-                            </span>
-                            <span className="block text-[10px] uppercase tracking-widest text-neutral-400 mt-2 font-body font-semibold">
-                              Scent Profile
-                            </span>
-                          </div>
+                            <span className="search-family-name">{name}</span>
+                            <span className="search-family-sub">{sub}</span>
+                          </button>
                         ))}
                       </div>
                     </div>
-
-                    <div className="search-section mt-12">
-                      <h4 className="search-section-title">Featured Fragrances</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 w-full">
-                        {collectionsData.filter(p => p.tags && p.tags.includes('featured')).slice(0, 10).map(product => (
+                  </>
+                ) : (
+                  /* ── Active query: live result rows ── */
+                  <>
+                    {filteredProducts.length > 0 ? (
+                      <div className="search-results-list">
+                        {filteredProducts.slice(0, 6).map((product) => (
                           <motion.div
                             key={product.id}
-                            className="group rounded-3xl overflow-hidden bg-white border border-neutral-100 shadow-sm cursor-pointer flex flex-col h-full min-w-[160px]"
-                            whileHover={{ y: -6 }}
+                            className="search-result-row"
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.2 }}
                             onClick={() => {
-                              handleSearchProductClick(product);
                               addRecentSearch(product.name);
+                              handleSearchProductClick(product);
                             }}
                           >
-                            <div className="relative aspect-[4/5] overflow-hidden rounded-3xl bg-[#faf8f5] w-full">
-                              <img
-                                src={product.image || '/images/perfume_placeholder.jpeg'}
-                                alt={product.name}
-                                loading="lazy"
-                                className="w-full h-full object-cover object-center transition-all duration-700 group-hover:scale-105"
-                              />
+                            <img
+                              className="search-result-img"
+                              src={product.image || '/images/perfume_placeholder.jpeg'}
+                              alt={product.name}
+                              loading="lazy"
+                            />
+                            <div className="search-result-meta">
+                              <span className="search-result-title">{product.name}</span>
+                              {product.family && (
+                                <span className="search-result-category">{product.family}</span>
+                              )}
+                              <span className="search-result-desc">
+                                {product.tagline ||
+                                  (Array.isArray(product.notes) && product.notes.slice(0, 3).join(' · ')) ||
+                                  (product.brand || '')}
+                              </span>
                             </div>
-                            <div className="p-4 flex flex-col justify-between flex-1">
-                              <div>
-                                <span className="text-xs tracking-[0.25em] uppercase text-neutral-400 block mb-1">
-                                  {product.brand ? product.brand.toUpperCase() : 'DECANT ATELIER'}
-                                </span>
-                                <h5 className="line-clamp-2 font-medium text-neutral-800 text-sm group-hover:text-amber-700 transition-colors duration-300">
-                                  {product.name}
-                                </h5>
-                              </div>
-                              <div className="font-semibold text-amber-700 mt-2">
-                                ₹ {parseFloat(product.price).toLocaleString('en-IN')}
-                              </div>
-                            </div>
+                            <span className="search-result-price">
+                              ₹{parseFloat(product.price).toLocaleString('en-IN')}
+                            </span>
                           </motion.div>
                         ))}
                       </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Autocomplete and Search Results when Query is Active */
-                  <div className="space-y-12">
-                    
-                    {/* Collections / Categories Matches */}
-                    {matchingCategories.length > 0 && (
-                      <div className="search-section">
-                        <h4 className="search-section-title mb-4">Collections</h4>
-                        <div className="flex flex-wrap gap-3">
-                          {matchingCategories.map(cat => (
-                            <button
-                              key={cat}
-                              onClick={() => handleTermClick(cat)}
-                              className="rounded-full border border-neutral-200 px-5 py-2 bg-white text-xs md:text-sm text-neutral-700 hover:bg-black hover:text-white transition-all duration-300 cursor-pointer font-body"
-                            >
-                              {cat}
-                            </button>
-                          ))}
-                        </div>
+                    ) : (
+                      /* No results */
+                      <div className="search-no-results">
+                        <p className="no-results-title">No fragrances found</p>
+                        <p className="no-results-text">Try "vanilla", "office", or "woody amber"</p>
                       </div>
                     )}
-
-                    {/* Brand Matches */}
-                    {matchingBrands.length > 0 && (
-                      <div className="search-section">
-                        <h4 className="search-section-title mb-4">Brands</h4>
-                        <div className="flex flex-wrap gap-3">
-                          {matchingBrands.map(b => (
-                            <button
-                              key={b}
-                              onClick={() => handleTermClick(b)}
-                              className="rounded-full border border-neutral-200 px-5 py-2 bg-white text-xs md:text-sm text-neutral-700 hover:bg-black hover:text-white transition-all duration-300 cursor-pointer font-body"
-                            >
-                              {b}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Products Grid */}
-                    {filteredProducts.length > 0 ? (
-                      <div className="search-section">
-                        <h4 className="search-section-title mb-4">Fragrances ({filteredProducts.length})</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 w-full">
-                          {filteredProducts.map(product => (
-                            <motion.div
-                              key={product.id}
-                              className="group rounded-3xl overflow-hidden bg-white border border-neutral-100 shadow-sm cursor-pointer flex flex-col h-full min-w-[160px]"
-                              whileHover={{ y: -6 }}
-                              onClick={() => {
-                                handleSearchProductClick(product);
-                                addRecentSearch(product.name);
-                              }}
-                            >
-                              <div className="relative aspect-[4/5] overflow-hidden rounded-3xl bg-[#faf8f5] w-full">
-                                <img
-                                  src={product.image || '/images/perfume_placeholder.jpeg'}
-                                  alt={product.name}
-                                  loading="lazy"
-                                  className="w-full h-full object-cover object-center transition-all duration-700 group-hover:scale-105"
-                                />
-                              </div>
-                              <div className="p-4 flex flex-col justify-between flex-1">
-                                <div>
-                                  <span className="text-xs tracking-[0.25em] uppercase text-neutral-400 block mb-1">
-                                    {product.brand ? product.brand.toUpperCase() : 'DECANT ATELIER'}
-                                  </span>
-                                  <h5 className="line-clamp-2 font-medium text-neutral-800 text-sm group-hover:text-amber-700 transition-colors duration-300">
-                                    {product.name}
-                                  </h5>
-                                </div>
-                                <div className="font-semibold text-amber-700 mt-2">
-                                  ₹ {parseFloat(product.price).toLocaleString('en-IN')}
-                                </div>
-                              </div>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {/* Empty State */}
-                    {filteredProducts.length === 0 && matchingBrands.length === 0 && matchingCategories.length === 0 && (
-                      <div className="py-16 text-center select-none">
-                        <svg className="w-12 h-12 text-neutral-300 mx-auto mb-4 stroke-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <p className="font-heading text-2xl font-light text-neutral-800 mb-4">
-                          No fragrances found.
-                        </p>
-                        <p className="font-body text-sm text-neutral-500 mb-6">
-                          Try searching:
-                        </p>
-                        <div className="flex flex-wrap justify-center gap-3 max-w-md mx-auto">
-                          {['Chanel', 'Yara', 'Khamrah', 'Creed'].map(term => (
-                            <button
-                              key={term}
-                              onClick={() => handleTermClick(term)}
-                              className="px-5 py-2 text-xs font-semibold text-neutral-700 bg-white border border-neutral-200 rounded-full hover:bg-black hover:text-white transition-all duration-300 cursor-pointer font-body"
-                            >
-                              {term}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
+                  </>
                 )}
               </div>
-            </div>
+
+              {/* ── Panel Footer: View All Results ── */}
+              <div className="search-footer-action">
+                <span className="search-action-hint">
+                  {searchQuery.trim()
+                    ? `${filteredProducts.length} result${filteredProducts.length !== 1 ? 's' : ''} found`
+                    : 'Start typing to discover'}
+                </span>
+                <button
+                  className="search-action-btn-main"
+                  onClick={() => {
+                    if (searchQuery.trim()) addRecentSearch(searchQuery);
+                    handleViewAllResults();
+                  }}
+                >
+                  View All Results
+                </button>
+              </div>
+
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
