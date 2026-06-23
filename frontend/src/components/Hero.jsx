@@ -60,11 +60,17 @@ export default function Hero() {
 
             {/* CTA */}
             <div className="hero-cta">
-              <button className="cta-primary" onClick={handleScrollToCollection}>
-                Shop Collection
+              <button 
+                className="cta-primary" 
+                onClick={() => { window.location.hash = 'shop?category=bestsellers'; }}
+              >
+                Best Sellers
               </button>
-              <button className="cta-secondary" onClick={handleScrollToCollection}>
-                Explore
+              <button 
+                className="cta-secondary" 
+                onClick={() => { window.location.hash = 'shop?category=decants'; }}
+              >
+                Fair Price Decants
               </button>
             </div>
           </div>
