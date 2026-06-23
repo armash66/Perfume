@@ -106,44 +106,6 @@ model Category {
 }
 
 // ============================================================
-// STOREFRONT COLLECTION PAGES
-// ============================================================
-
-model Collection {
-  id              String   @id @default(cuid())
-  name            String
-  slug            String   @unique
-  description     String?
-  eyebrow         String?
-  imageUrl        String?
-  isActive        Boolean  @default(true)
-  showInDirectory Boolean  @default(true)
-  sortOrder       Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  items CollectionProduct[]
-
-  @@index([isActive, showInDirectory, sortOrder])
-  @@map("collections")
-}
-
-model CollectionProduct {
-  collectionId String
-  productId    String
-  position     Int        @default(0)
-  createdAt    DateTime   @default(now())
-
-  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@id([collectionId, productId])
-  @@index([productId])
-  @@index([collectionId, position])
-  @@map("collection_products")
-}
-
-// ============================================================
 // PRODUCT, IMAGES, VARIANTS
 // ============================================================
 
@@ -164,7 +126,6 @@ model Product {
   variants   ProductVariant[]
   reviews    Review[]
   orderItems OrderItem[]
-  collectionItems CollectionProduct[]
 
   @@index([slug])
   @@index([name])
@@ -339,4 +300,47 @@ model InventoryLog {
   @@index([variantId])
   @@index([createdAt])
   @@map("inventory_logs")
+}
+
+// ============================================================
+// STORE SETTINGS
+// ============================================================
+
+model StoreSetting {
+  id                    String   @id @default("default")
+  storeName             String   @default("Decant Atelier")
+  supportEmail          String   @default("concierge@decantatelier.com")
+  supportPhone          String   @default("+91 97681 88453")
+  codEnabled            Boolean  @default(true)
+  shippingCharges       Decimal  @db.Decimal(10, 2) @default(100.00)
+  freeShippingThreshold Decimal  @db.Decimal(10, 2) @default(1999.00)
+  razorpayKey           String   @default("rzp_test_AtelierKey2026")
+  razorpaySecret        String   @default("")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("store_settings")
+}
+
+// ============================================================
+// CAMPAIGN MANAGER
+// ============================================================
+
+model Campaign {
+  id             String    @id @default(cuid())
+  isActive       Boolean   @default(false)
+  title          String    @default("Special Offer")
+  subheading     String?
+  imageUrl       String?
+  badge          String?
+  displayPrice   String?
+  ctaText        String    @default("Shop Now")
+  ctaDestination String    @default("shop")
+  displayMode    String    @default("once_per_day")
+  startDate      DateTime?
+  endDate        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("campaigns")
 }

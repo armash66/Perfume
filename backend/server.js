@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
 import { Webhook } from 'svix';
 import { prisma } from './lib/prisma.js';
+import Razorpay from 'razorpay';
+import crypto from 'crypto';
 
 // Load environment variables
 dotenv.config();
@@ -11,10 +13,17 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS for frontend Vite client (port 5173 by default)
+// Enable CORS for frontend Vite client (ports 5173 and 5174)
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
-  credentials: true
+  origin: [
+    'http://localhost:5173', 
+    'http://127.0.0.1:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5174'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Webhook endpoint uses raw body parser for svix signature verification
@@ -102,16 +111,69 @@ app.use(ClerkExpressWithAuth({
 
 // Middleware to enforce authentication
 const requireAuth = (req, res, next) => {
-  // Support local mock auth header for local testing/verification
-  if (req.headers['x-mock-user-id']) {
-    req.auth = { userId: req.headers['x-mock-user-id'] };
-    return next();
-  }
   if (!req.auth || !req.auth.userId) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
   }
   next();
 };
+
+// Logging middleware for Cart operations
+app.use('/api/cart', async (req, res, next) => {
+  const originalJson = res.json;
+  const originalStatus = res.status;
+  let responseStatus = 200;
+
+  res.status = function(code) {
+    responseStatus = code;
+    return originalStatus.apply(this, arguments);
+  };
+
+  res.json = async function(body) {
+    try {
+      console.log('\n====== CART OPERATION TRACE ======');
+      console.log(`URL: ${req.originalUrl}`);
+      console.log(`Method: ${req.method}`);
+      console.log(`Clerk User ID: ${req.auth?.userId || 'N/A'}`);
+      console.log(`Token Present: ${!!req.headers.authorization}`);
+
+      let dbUserId = 'N/A';
+      let countBefore = 'N/A';
+      let countAfter = 'N/A';
+
+      if (req.auth?.userId) {
+        const dbUser = await prisma.user.findUnique({
+          where: { clerkId: req.auth.userId }
+        });
+        if (dbUser) {
+          dbUserId = dbUser.id;
+          countBefore = await prisma.cartItem.count({ where: { userId: dbUser.id } });
+        }
+      }
+
+      console.log(`Database User ID: ${dbUserId}`);
+      console.log(`Variant ID: ${req.body?.variantId || req.params?.id || 'N/A'}`);
+      console.log(`CartItem Count (Before): ${countBefore}`);
+
+      const result = originalJson.apply(this, arguments);
+
+      if (dbUserId !== 'N/A') {
+        countAfter = await prisma.cartItem.count({ where: { userId: dbUserId } });
+      }
+
+      console.log(`Response Status: ${responseStatus}`);
+      console.log(`Response Body: ${JSON.stringify(body)}`);
+      console.log(`CartItem Count (After): ${countAfter}`);
+      console.log('==================================\n');
+
+      return result;
+    } catch (err) {
+      console.error('Logging middleware error:', err);
+      return originalJson.apply(this, arguments);
+    }
+  };
+
+  next();
+});
 
 // Helper: Get or create DB User from Clerk Auth ID (robust fallback if webhook is pending)
 async function getOrCreateDbUser(clerkId) {
@@ -368,6 +430,26 @@ app.get('/api/orders', requireAuth, async (req, res) => {
   }
 });
 
+const getRazorpayInstance = (storeSettings) => {
+  const keyId = process.env.RAZORPAY_KEY_ID || (storeSettings ? storeSettings.razorpayKey : null);
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    console.warn("Razorpay credentials missing. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.");
+    return null;
+  }
+
+  try {
+    return new Razorpay({
+      key_id: keyId,
+      key_secret: keySecret
+    });
+  } catch (err) {
+    console.error("Failed to initialize Razorpay:", err);
+    return null;
+  }
+};
+
 // POST place order
 app.post('/api/orders', requireAuth, async (req, res) => {
   const { addressId, items, paymentMethod, notes } = req.body;
@@ -395,7 +477,14 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       subtotal += price * qty;
     }
 
-    const shippingFee = subtotal >= 999 ? 0 : 99; // Free shipping over 999, otherwise 99
+    // Fetch store settings from DB
+    const storeSettings = await prisma.storeSetting.findUnique({
+      where: { id: 'default' }
+    });
+    const threshold = storeSettings ? parseFloat(storeSettings.freeShippingThreshold) : 1999;
+    const charge = storeSettings ? parseFloat(storeSettings.shippingCharges) : 100;
+
+    const shippingFee = subtotal >= threshold ? 0 : charge;
     const total = subtotal + shippingFee;
 
     // Place order in transaction
@@ -486,13 +575,45 @@ app.post('/api/orders', requireAuth, async (req, res) => {
         }
       });
 
+      // If Razorpay, generate order ID from payment gateway
+      let rzpOrderId = null;
+      if (paymentMethod === 'RAZORPAY') {
+        const rzp = getRazorpayInstance(storeSettings);
+        if (!rzp) {
+          throw new Error('Payment gateway configuration is missing. Razorpay cannot be initialized.');
+        }
+        try {
+          const rzpOrder = await rzp.orders.create({
+            amount: Math.round(total * 100),
+            currency: 'INR',
+            receipt: `rcpt_${newOrder.id.slice(-10)}`
+          });
+          rzpOrderId = rzpOrder.id;
+        } catch (rzpErr) {
+          console.error('Razorpay order creation failed:', rzpErr);
+          throw new Error('Failed to create payment gateway order: ' + rzpErr.message);
+        }
+      }
+
+      // If we generated a Razorpay order ID, update the order in the database
+      let finalOrder = newOrder;
+      if (rzpOrderId) {
+        finalOrder = await tx.order.update({
+          where: { id: newOrder.id },
+          data: { razorpayOrderId: rzpOrderId },
+          include: {
+            orderItems: true
+          }
+        });
+      }
+
       // 5. Clear user cart in DB
       await tx.cartItem.deleteMany({
         where: { userId: dbUser.id }
       });
 
       return tx.order.findUnique({
-        where: { id: newOrder.id },
+        where: { id: finalOrder.id },
         include: {
           orderItems: true,
           payment: true
@@ -508,12 +629,180 @@ app.post('/api/orders', requireAuth, async (req, res) => {
   }
 });
 
+// ============================================================
+// PAYMENT INTEGRATION ROUTES
+// ============================================================
+
+// POST verify Razorpay signature and update payment status
+app.post('/api/payments/verify', requireAuth, async (req, res) => {
+  const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId } = req.body;
+
+  if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature || !orderId) {
+    return res.status(400).json({ error: 'Missing payment verification details' });
+  }
+
+  try {
+    const dbUser = await getOrCreateDbUser(req.auth.userId);
+
+    // Fetch order from DB
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, userId: dbUser.id }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keySecret) {
+      console.error("Razorpay secret missing. Cannot verify signature.");
+      return res.status(500).json({ error: 'Payment verification is unavailable. Gateway secret is missing.' });
+    }
+
+    // Verify signature using crypto
+    const text = `${razorpayOrderId}|${razorpayPaymentId}`;
+    const generatedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(text)
+      .digest('hex');
+
+    if (generatedSignature !== razorpaySignature) {
+      // Signature mismatch
+      await prisma.$transaction([
+        prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'PENDING' } // Order remains pending
+        }),
+        prisma.payment.update({
+          where: { orderId: orderId },
+          data: { status: 'FAILED' }
+        })
+      ]);
+      return res.status(400).json({ error: 'Payment signature verification failed. Possible fraud.' });
+    }
+
+    // Verification successful
+    await prisma.$transaction([
+      prisma.order.update({
+        where: { id: orderId },
+        data: { status: 'CONFIRMED' }
+      }),
+      prisma.payment.update({
+        where: { orderId: orderId },
+        data: {
+          status: 'SUCCESS',
+          transactionId: razorpayPaymentId,
+          paidAt: new Date()
+        }
+      })
+    ]);
+
+    return res.status(200).json({ success: true, message: 'Payment verified and order confirmed.' });
+  } catch (err) {
+    console.error('Failed to verify payment:', err);
+    return res.status(500).json({ error: 'Internal server error during verification.' });
+  }
+});
+
+// POST notify payment failure
+app.post('/api/payments/fail', requireAuth, async (req, res) => {
+  const { orderId } = req.body;
+  if (!orderId) {
+    return res.status(400).json({ error: 'Missing orderId' });
+  }
+  try {
+    const dbUser = await getOrCreateDbUser(req.auth.userId);
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, userId: dbUser.id }
+    });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    await prisma.payment.update({
+      where: { orderId },
+      data: { status: 'FAILED' }
+    });
+
+    return res.status(200).json({ success: true, message: 'Payment recorded as failed.' });
+  } catch (err) {
+    console.error('Failed to record payment failure:', err);
+    return res.status(500).json({ error: 'Failed to record payment failure' });
+  }
+});
+
+// ============================================================
+// CUSTOMER REVIEWS ROUTES
+// ============================================================
+
+// POST submit review
+app.post('/api/reviews', requireAuth, async (req, res) => {
+  const { productId, rating, title, comment, orderId } = req.body;
+
+  if (!productId || rating === undefined) {
+    return res.status(400).json({ error: 'Missing productId or rating' });
+  }
+
+  const rate = parseInt(rating);
+  if (rate < 1 || rate > 5) {
+    return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+  }
+
+  try {
+    const dbUser = await getOrCreateDbUser(req.auth.userId);
+
+    // Optional constraint: verify purchase
+    const purchaseCount = await prisma.order.count({
+      where: {
+        userId: dbUser.id,
+        status: { in: ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] },
+        orderItems: {
+          some: { productId }
+        }
+      }
+    });
+
+    if (purchaseCount === 0) {
+      return res.status(403).json({ error: 'Verified purchase required. You can only review products you have purchased.' });
+    }
+
+    // Upsert review (one review per product)
+    const review = await prisma.review.upsert({
+      where: {
+        userId_productId: {
+          userId: dbUser.id,
+          productId
+        }
+      },
+      update: {
+        rating: rate,
+        title,
+        comment,
+        orderId,
+        approved: false // reset approval on edit
+      },
+      create: {
+        userId: dbUser.id,
+        productId,
+        rating: rate,
+        title,
+        comment,
+        orderId,
+        approved: false // defaults to pending moderation
+      }
+    });
+
+    return res.status(201).json(review);
+  } catch (err) {
+    console.error('Failed to submit review:', err);
+    return res.status(500).json({ error: 'Failed to submit review' });
+  }
+});
+
+
+
 // Admin role requirement middleware
 const requireAdmin = async (req, res, next) => {
-  if (req.headers['x-mock-user-id']) {
-    req.auth = { userId: req.headers['x-mock-user-id'] };
-  }
-  
   if (!req.auth || !req.auth.userId) {
     return res.status(401).json({ error: 'Unauthorized: Missing token' });
   }
@@ -597,7 +886,8 @@ app.get('/api/products', async (req, res) => {
                  v.size.includes('5ml') ? 'Travel friendly' : 
                  v.size.includes('10ml') ? 'Best value' : 'Collector size',
           stock: v.stock,
-          sku: v.sku
+          sku: v.sku,
+          variantId: v.id
         })),
         avgRating: parseFloat(avgRating.toFixed(1))
       };
@@ -610,12 +900,17 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// GET single product by slug
+// GET single product by slug or ID
 app.get('/api/products/:slug', async (req, res) => {
   const { slug } = req.params;
   try {
-    const product = await prisma.product.findUnique({
-      where: { slug },
+    const product = await prisma.product.findFirst({
+      where: {
+        OR: [
+          { slug },
+          { id: slug }
+        ]
+      },
       include: {
         images: {
           orderBy: { position: 'asc' }
@@ -956,31 +1251,7 @@ app.patch('/api/user/profile', requireAuth, async (req, res) => {
   }
 });
 
-// POST elevate user to admin with secret passcode
-app.post('/api/user/elevate', requireAuth, async (req, res) => {
-  const { passcode } = req.body;
-  if (passcode !== 'AtelierAdmin2026') {
-    return res.status(400).json({ error: 'Invalid secret passcode' });
-  }
-
-  try {
-    const dbUser = await getOrCreateDbUser(req.auth.userId);
-    const updatedUser = await prisma.user.update({
-      where: { id: dbUser.id },
-      data: { role: 'ADMIN' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true
-      }
-    });
-    return res.status(200).json({ success: true, role: updatedUser.role });
-  } catch (err) {
-    console.error('Failed to elevate user role:', err);
-    return res.status(500).json({ error: 'Failed to elevate user role' });
-  }
-});
+// POST elevate user to admin with secret passcode - Removed for Security Hardening
 
 
 // ============================================================
@@ -1040,13 +1311,23 @@ app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (req, res) => {
       }
     }
 
+    const pendingReviews = await prisma.review.count({
+      where: { approved: false }
+    });
+
+    const failedPayments = await prisma.payment.count({
+      where: { status: 'FAILED' }
+    });
+
     return res.status(200).json({
       totalRevenue,
       totalOrders,
       totalUsers,
       pendingOrders,
       lowStockVariants: formattedLowStock,
-      bestSellers
+      bestSellers,
+      pendingReviews,
+      failedPayments
     });
   } catch (err) {
     console.error('Failed to fetch admin dashboard stats:', err);
@@ -1110,14 +1391,52 @@ app.patch('/api/admin/orders/:id', requireAuth, requireAdmin, async (req, res) =
   }
 });
 
+// GET all payments ledger (admin only)
+app.get('/api/admin/payments', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const payments = await prisma.payment.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        order: {
+          include: {
+            user: { select: { name: true, email: true } }
+          }
+        }
+      }
+    });
+
+    const response = payments.map(p => ({
+      id: p.id,
+      orderId: p.orderId,
+      customerName: p.order?.user?.name || 'Collector',
+      customerEmail: p.order?.user?.email || 'N/A',
+      provider: p.provider,
+      transactionId: p.transactionId || (p.provider === 'COD' ? 'COD_Fulfill' : 'N/A'),
+      amount: parseFloat(p.amount),
+      status: p.status,
+      paidDate: p.paidAt || p.createdAt
+    }));
+
+    return res.status(200).json(response);
+  } catch (err) {
+    console.error('Failed to fetch admin payments:', err);
+    return res.status(500).json({ error: 'Failed to fetch admin payments' });
+  }
+});
+
 // GET all users for admin
 app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
+        addresses: true,
         orders: {
-          select: { id: true }
+          select: {
+            id: true,
+            total: true,
+            createdAt: true
+          }
         }
       }
     });
@@ -1129,6 +1448,12 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
       phone: u.phone,
       role: u.role,
       createdAt: u.createdAt,
+      addresses: u.addresses,
+      orders: u.orders.map(o => ({
+        id: o.id,
+        total: parseFloat(o.total),
+        createdAt: o.createdAt
+      })),
       orderCount: u.orders.length
     }));
 
@@ -1161,6 +1486,71 @@ app.patch('/api/admin/users/:id/role', requireAuth, requireAdmin, async (req, re
   } catch (err) {
     console.error('Failed to update user role:', err);
     return res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+// ============================================================
+// STORE CONFIGURATION SETTINGS
+// ============================================================
+
+// GET store settings (public)
+app.get('/api/settings', async (req, res) => {
+  try {
+    const settings = await prisma.storeSetting.findUnique({
+      where: { id: 'default' }
+    });
+    if (!settings) {
+      return res.status(404).json({ error: 'Settings not found' });
+    }
+    const { razorpaySecret, ...publicSettings } = settings;
+    return res.status(200).json(publicSettings);
+  } catch (err) {
+    console.error('Failed to fetch store settings:', err);
+    return res.status(500).json({ error: 'Failed to fetch store settings' });
+  }
+});
+
+// GET store settings for admin (admin only)
+app.get('/api/admin/settings', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const settings = await prisma.storeSetting.findUnique({
+      where: { id: 'default' }
+    });
+    if (!settings) {
+      return res.status(404).json({ error: 'Settings not found' });
+    }
+    return res.status(200).json(settings);
+  } catch (err) {
+    console.error('Failed to fetch admin settings:', err);
+    return res.status(500).json({ error: 'Failed to fetch admin settings' });
+  }
+});
+
+// PATCH update store settings (admin only)
+app.patch('/api/admin/settings', requireAuth, requireAdmin, async (req, res) => {
+  const { storeName, supportEmail, supportPhone, codEnabled, shippingCharges, freeShippingThreshold, razorpayKey, razorpaySecret } = req.body;
+  
+  const updateData = {};
+  if (storeName !== undefined) updateData.storeName = storeName;
+  if (supportEmail !== undefined) updateData.supportEmail = supportEmail;
+  if (supportPhone !== undefined) updateData.supportPhone = supportPhone;
+  if (codEnabled !== undefined) updateData.codEnabled = !!codEnabled;
+  if (shippingCharges !== undefined) updateData.shippingCharges = parseFloat(shippingCharges);
+  if (freeShippingThreshold !== undefined) updateData.freeShippingThreshold = parseFloat(freeShippingThreshold);
+  if (razorpayKey !== undefined) updateData.razorpayKey = razorpayKey;
+  if (razorpaySecret !== undefined && razorpaySecret !== '••••••••••••••••••••••••') {
+    updateData.razorpaySecret = razorpaySecret;
+  }
+
+  try {
+    const updated = await prisma.storeSetting.update({
+      where: { id: 'default' },
+      data: updateData
+    });
+    return res.status(200).json(updated);
+  } catch (err) {
+    console.error('Failed to update store settings:', err);
+    return res.status(500).json({ error: 'Failed to update store settings' });
   }
 });
 
@@ -1516,8 +1906,13 @@ app.post('/api/cart', requireAuth, async (req, res) => {
     }
 
     // Find if exists
-    const existing = await prisma.cartItem.findFirst({
-      where: { userId: dbUser.id, variantId }
+    const existing = await prisma.cartItem.findUnique({
+      where: {
+        userId_variantId: {
+          userId: dbUser.id,
+          variantId
+        }
+      }
     });
 
     const newQuantity = existing ? (existing.quantity + qty) : qty;
@@ -1761,7 +2156,115 @@ app.get('/api/status', (req, res) => {
   return res.json({ status: 'healthy', database: 'connected' });
 });
 
+
+// ─────────────────────────────────────────────────
+// CAMPAIGN MANAGER ROUTES
+// ─────────────────────────────────────────────────
+
+// Public: get the currently active campaign (respects scheduling)
+app.get('/api/campaigns/active', async (req, res) => {
+  try {
+    const now = new Date();
+    const campaigns = await prisma.campaign.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    // Filter by schedule: only campaigns where now is within [startDate, endDate]
+    const valid = campaigns.find(c => {
+      const afterStart = !c.startDate || now >= c.startDate;
+      const beforeEnd = !c.endDate || now <= c.endDate;
+      return afterStart && beforeEnd;
+    });
+    if (!valid) return res.status(204).end();
+    return res.json(valid);
+  } catch (err) {
+    console.error('Failed to fetch active campaign:', err);
+    return res.status(500).json({ error: 'Failed to fetch active campaign' });
+  }
+});
+
+// Admin: list all campaigns
+app.get('/api/admin/campaigns', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const campaigns = await prisma.campaign.findMany({ orderBy: { createdAt: 'desc' } });
+    return res.json(campaigns);
+  } catch (err) {
+    console.error('Failed to list campaigns:', err);
+    return res.status(500).json({ error: 'Failed to list campaigns' });
+  }
+});
+
+// Admin: create campaign
+app.post('/api/admin/campaigns', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { isActive, title, subheading, imageUrl, badge, displayPrice, ctaText, ctaDestination, displayMode, startDate, endDate } = req.body;
+    const campaign = await prisma.campaign.create({
+      data: {
+        isActive: isActive ?? false,
+        title: title || 'Special Offer',
+        subheading: subheading || null,
+        imageUrl: imageUrl || null,
+        badge: badge || null,
+        displayPrice: displayPrice || null,
+        ctaText: ctaText || 'Shop Now',
+        ctaDestination: ctaDestination || 'shop',
+        displayMode: displayMode || 'once_per_day',
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+      }
+    });
+    return res.status(201).json(campaign);
+  } catch (err) {
+    console.error('Failed to create campaign:', err);
+    return res.status(500).json({ error: 'Failed to create campaign' });
+  }
+});
+
+// Admin: update campaign
+app.patch('/api/admin/campaigns/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive, title, subheading, imageUrl, badge, displayPrice, ctaText, ctaDestination, displayMode, startDate, endDate } = req.body;
+    const data = {};
+    if (isActive !== undefined) data.isActive = isActive;
+    if (title !== undefined) data.title = title;
+    if (subheading !== undefined) data.subheading = subheading;
+    if (imageUrl !== undefined) data.imageUrl = imageUrl;
+    if (badge !== undefined) data.badge = badge;
+    if (displayPrice !== undefined) data.displayPrice = displayPrice;
+    if (ctaText !== undefined) data.ctaText = ctaText;
+    if (ctaDestination !== undefined) data.ctaDestination = ctaDestination;
+    if (displayMode !== undefined) data.displayMode = displayMode;
+    if (startDate !== undefined) data.startDate = startDate ? new Date(startDate) : null;
+    if (endDate !== undefined) data.endDate = endDate ? new Date(endDate) : null;
+
+    const campaign = await prisma.campaign.update({ where: { id }, data });
+    return res.json(campaign);
+  } catch (err) {
+    console.error('Failed to update campaign:', err);
+    return res.status(500).json({ error: 'Failed to update campaign' });
+  }
+});
+
+// Admin: delete campaign
+app.delete('/api/admin/campaigns/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await prisma.campaign.delete({ where: { id: req.params.id } });
+    return res.status(204).end();
+  } catch (err) {
+    console.error('Failed to delete campaign:', err);
+    return res.status(500).json({ error: 'Failed to delete campaign' });
+  }
+});
+
 // Start listening
+
 app.listen(PORT, () => {
   console.log(`Express API server running on http://localhost:${PORT}`);
+  console.log('\n====== CLERK AUTH PROCESS CONFIGURATION ======');
+  console.log('CLERK_SECRET_KEY Present:', !!process.env.CLERK_SECRET_KEY);
+  console.log('CLERK_SECRET_KEY Value:', process.env.CLERK_SECRET_KEY);
+  console.log('CLERK_PUBLISHABLE_KEY:', process.env.CLERK_PUBLISHABLE_KEY);
+  console.log('Current Cwd:', process.cwd());
+  console.log('==============================================\n');
 });
