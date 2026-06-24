@@ -140,7 +140,7 @@ export default function Footer({ onNavigate }) {
       {/* Disclaimer */}
       <div className="footer-disclaimer">
         <p>
-          <strong>Brand Disclaimer:</strong> Decant Atelier is an independent perfume decanting service. We are not affiliated with, endorsed by, sponsored by, or officially connected to any of the fragrance houses or brands referenced on this site. All trademarks, brand names, and product names are the property of their respective owners and are used solely to identify the original fragrance from which a decant is poured. Vials, labels, and packaging are produced by Decant Atelier and are not the brand's official packaging.
+          <strong><b>Brand Disclaimer:</b></strong> Decant Atelier is an independent perfume decanting service. We are not affiliated with, endorsed by, sponsored by, or officially connected to any of the fragrance houses or brands referenced on this site. All trademarks, brand names, and product names are the property of their respective owners and are used solely to identify the original fragrance from which a decant is poured. Vials, labels, and packaging are produced by Decant Atelier and are not the brand's official packaging.
         </p>
       </div>
 
