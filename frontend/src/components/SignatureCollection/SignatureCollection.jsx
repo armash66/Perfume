@@ -378,7 +378,7 @@ export default function SignatureCollection({
   }, [currentCategory]);
 
   return (
-    <section className="relative bg-[#F7F3ED] py-16 lg:py-24 overflow-hidden select-none font-body">
+    <section className="relative bg-[#F7F3ED] pt-6 pb-16 md:pt-8 md:pb-20 lg:pt-10 lg:pb-24 overflow-hidden select-none font-body">
       {/* Background visual graphics */}
       <div
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -402,7 +402,7 @@ export default function SignatureCollection({
           if (activeBanner) {
             return (
               <div 
-                className="collection-hero-banner w-full relative overflow-hidden mb-12 rounded-3xl shadow-sm border border-black/5"
+                className="collection-hero-banner w-full relative overflow-hidden mb-6 md:mb-8 rounded-3xl shadow-sm border border-black/5"
                 role="banner"
                 aria-label={`${activeBanner.title} collection`}
               >
@@ -494,11 +494,11 @@ export default function SignatureCollection({
         )}
 
         {/* Unified Control Bar (Filters on Left, Search + Sort on Right) */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-4 border-b mb-8" style={{ borderBottomColor: '#D8D1C7' }}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 pb-3 md:pb-4 border-b mb-6 md:mb-8" style={{ borderBottomColor: '#D8D1C7' }}>
           {/* Left side intentionally empty — filter pills removed */}
-          <div />
+          <div className="hidden md:block" />
           {/* Right: Search + Sort controls */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6">
             {/* Search input container */}
             <div className="relative flex-1 sm:flex-none">
               <input
@@ -585,7 +585,7 @@ export default function SignatureCollection({
         ) : collectionsError && currentCategory !== 'all' ? (
           <div className="py-20 text-center text-red-700">{collectionsError}</div>
         ) : filteredAndSortedItems.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-16">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 md:gap-x-6 lg:gap-x-8 gap-y-8 md:gap-y-12 lg:gap-y-16">
             {filteredAndSortedItems.map((item) => (
               <div
                 key={item.id}

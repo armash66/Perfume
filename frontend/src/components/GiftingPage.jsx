@@ -194,7 +194,8 @@ export default function GiftingPage() {
                 <div className="flex flex-wrap justify-center items-center gap-4 w-full sm:w-auto">
                   <button 
                     onClick={handleExplore}
-                    className="w-full sm:w-auto bg-[#1C1B18] text-[#FEFCF9] font-body text-xs font-semibold tracking-widest uppercase py-4 px-8 rounded-full cursor-pointer hover:bg-amber-700 hover:text-white transition-all duration-500 shadow-md hover:shadow-lg select-none"
+                    className="w-full sm:w-auto bg-[#1C1B18] font-body text-xs font-semibold tracking-widest uppercase py-4 px-8 rounded-full cursor-pointer hover:bg-amber-700 transition-all duration-500 shadow-md hover:shadow-lg select-none"
+                    style={{ color: '#FEFCF9' }}
                   >
                     Discover Fragrances
                   </button>
@@ -302,7 +303,8 @@ export default function GiftingPage() {
                     <button 
                       type="submit"
                       disabled={status === 'submitting'}
-                      className="w-full sm:w-auto bg-[#1C1B18] text-[#FEFCF9] font-body text-xs font-semibold tracking-widest uppercase py-3.5 px-8 rounded-full cursor-pointer hover:bg-amber-700 hover:text-white transition-all duration-500 disabled:opacity-50 select-none whitespace-nowrap inline-flex items-center justify-center min-h-[46px] shadow-sm"
+                      className="w-full sm:w-auto bg-[#1C1B18] font-body text-xs font-semibold tracking-widest uppercase py-3.5 px-8 rounded-full cursor-pointer hover:bg-amber-700 transition-all duration-500 disabled:opacity-50 select-none whitespace-nowrap inline-flex items-center justify-center min-h-[46px] shadow-sm"
+                      style={{ color: '#FEFCF9' }}
                     >
                       {status === 'submitting' ? (
                         <span className="flex items-center gap-2">
