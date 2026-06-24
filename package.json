@@ -1,6 +1,9 @@
 {
   "name": "decant-atelier-monorepo",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix frontend\" \"node backend/server.js\""
   },
