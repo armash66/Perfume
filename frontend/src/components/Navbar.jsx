@@ -100,7 +100,47 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
   // Global Search Overlay States, Refs, and Effects
   const searchInputRef = useRef(null);
   const searchContainerRef = useRef(null);
+  const mobileMenuRef = useRef(null);
   const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  // Handle keyboard navigation and trap focus inside mobile menu drawer
+  const handleMobileMenuKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      const focusableEls = mobileMenuRef.current?.querySelectorAll(
+        'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex="0"]'
+      );
+      if (!focusableEls || focusableEls.length === 0) return;
+      
+      const firstEl = focusableEls[0];
+      const lastEl = focusableEls[focusableEls.length - 1];
+      
+      if (e.shiftKey) {
+        if (document.activeElement === firstEl) {
+          lastEl.focus();
+          e.preventDefault();
+        }
+      } else {
+        if (document.activeElement === lastEl) {
+          firstEl.focus();
+          e.preventDefault();
+        }
+      }
+    } else if (e.key === 'Escape') {
+      setIsMobileMenuOpen(false);
+      // Return focus to hamburger menu trigger button
+      document.querySelector('.hamburger')?.focus();
+    }
+  };
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      setTimeout(() => {
+        const firstEl = mobileMenuRef.current?.querySelector('button, a, input');
+        firstEl?.focus();
+      }, 50);
+    }
+  }, [isMobileMenuOpen]);
+
   const [recentSearches, setRecentSearches] = useState([]);
 
   // Load recent searches from localStorage
@@ -629,7 +669,14 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
 
       {/* Mobile full-screen drawer */}
       <div className={`mobile-overlay ${isMobileMenuOpen ? 'open' : ''}`} onClick={() => setIsMobileMenuOpen(false)} />
-      <div className={`mobile-menu ${isMobileMenuOpen ? 'open' : ''}`}>
+      <div
+        ref={mobileMenuRef}
+        className={`mobile-menu ${isMobileMenuOpen ? 'open' : ''}`}
+        onKeyDown={handleMobileMenuKeyDown}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+      >
         <div className="mobile-menu-header">
           <span className="brand-name">DECANT ATELIER</span>
           <button className="mobile-close" onClick={() => setIsMobileMenuOpen(false)} aria-label="Close menu">
@@ -639,10 +686,15 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
 
         <ul className="mobile-nav-list">
           <li>
-            <button className={`mobile-accordion ${isMobileShopOpen ? 'expanded' : ''}`} onClick={() => setIsMobileShopOpen(!isMobileShopOpen)}>
+            <button
+              className={`mobile-accordion ${isMobileShopOpen ? 'expanded' : ''}`}
+              onClick={() => setIsMobileShopOpen(!isMobileShopOpen)}
+              aria-expanded={isMobileShopOpen}
+              aria-controls="mobile-shop-submenu"
+            >
               Shop <i className="fas fa-chevron-down" />
             </button>
-            <ul className={`mobile-sub ${isMobileShopOpen ? 'open' : ''}`}>
+            <ul id="mobile-shop-submenu" className={`mobile-sub ${isMobileShopOpen ? 'open' : ''}`}>
               <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'all')}>Shop All</a></li>
               <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'decants')}>Decants</a></li>
               <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'fullbottles')}>Full Bottles</a></li>
@@ -651,10 +703,15 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
             </ul>
           </li>
           <li>
-            <button className={`mobile-accordion ${isMobileCollectionsOpen ? 'expanded' : ''}`} onClick={() => setIsMobileCollectionsOpen(!isMobileCollectionsOpen)}>
+            <button
+              className={`mobile-accordion ${isMobileCollectionsOpen ? 'expanded' : ''}`}
+              onClick={() => setIsMobileCollectionsOpen(!isMobileCollectionsOpen)}
+              aria-expanded={isMobileCollectionsOpen}
+              aria-controls="mobile-collections-submenu"
+            >
               Collections <i className="fas fa-chevron-down" />
             </button>
-            <ul className={`mobile-sub ${isMobileCollectionsOpen ? 'open' : ''}`}>
+            <ul id="mobile-collections-submenu" className={`mobile-sub ${isMobileCollectionsOpen ? 'open' : ''}`}>
               <li><a href="#categories" onClick={(e) => handleLinkClick(e, 'categories')}>All Collections</a></li>
               <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'summer')}>Summer</a></li>
               <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'winter')}>Winter</a></li>
@@ -667,13 +724,13 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
           <li><a href="#gifting" onClick={(e) => handleLinkClick(e, 'gifting')}>Gifting</a></li>
           <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'bestsellers')}>Best Sellers</a></li>
           <li><a href="#about" onClick={(e) => handleLinkClick(e, 'about')}>About</a></li>
-          <li><a href="#wishlist" onClick={(e) => handleLinkClick(e, 'wishlist')}>My Wishlist</a></li>
+          {/* <li><a href="#wishlist" onClick={(e) => handleLinkClick(e, 'wishlist')}>My Wishlist</a></li>
           <li>
             <a href="#cart" onClick={(e) => handleLinkClick(e, 'cart')} className="mobile-cart-link" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Shopping Bag</span>
               {cartCount > 0 && <span className="mobile-drawer-cart-count">{cartCount}</span>}
             </a>
-          </li>
+          </li> */}
           
           <SignedIn>
             <div className="mobile-drawer-divider" />
@@ -698,6 +755,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
           </SignedOut>
         </ul>
       </div>
+
 
       {/* ─── Search Overlay — Spotlight / Raycast Style ─── */}
       <AnimatePresence>

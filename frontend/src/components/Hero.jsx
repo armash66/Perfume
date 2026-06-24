@@ -22,7 +22,7 @@ export default function Hero() {
       <div className="hero-container">
         {/* Left editorial content overlay */}
         <div className="hero-content">
-          <div className="hero-content-inner">
+          <div className="hero-content-inner" style={{ color: "#C9A46A" }}>
             {/* Eyebrow */}
             <span className="hero-eyebrow">EST. 2026 &bull; LUXURY FRAGRANCES</span>
 
@@ -59,14 +59,14 @@ export default function Hero() {
 
             {/* CTA */}
             <div className="hero-cta">
-              <button 
-                className="cta-primary" 
+              <button
+                className="cta-primary"
                 onClick={() => { window.location.hash = 'shop?category=all'; }}
               >
                 Explore Collection
               </button>
-              <button 
-                className="cta-secondary" 
+              <button
+                className="cta-secondary"
                 onClick={() => { window.location.hash = 'shop?category=bestsellers'; }}
               >
                 Best Sellers

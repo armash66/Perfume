@@ -402,41 +402,59 @@ export default function SignatureCollection({
           if (activeBanner) {
             return (
               <div 
-                className="w-full relative overflow-hidden mb-12 rounded-3xl h-[180px] md:h-[220px] lg:h-[240px] xl:h-[280px] shadow-sm border border-black/5"
+                className="collection-hero-banner w-full relative overflow-hidden mb-12 rounded-3xl shadow-sm border border-black/5"
+                role="banner"
+                aria-label={`${activeBanner.title} collection`}
               >
-                {/* Background image filling container */}
+                {/* Background image with safe object-fit for any uploaded image */}
                 <img 
                   src={activeBanner.image} 
-                  alt={activeBanner.title} 
-                  className="absolute inset-0 w-full h-full object-cover object-center z-0"
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 w-full h-full z-0"
+                  style={{
+                    objectFit: 'cover',
+                    objectPosition: 'center',
+                  }}
                 />
 
-                {/* Dark premium linear gradient overlay */}
+                {/* Intelligent 4-stop horizontal gradient overlay — guarantees text readability on ANY image */}
                 <div 
                   className="absolute inset-0 z-10" 
-                  style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.75), rgba(0,0,0,0.45), rgba(0,0,0,0.20))' }}
+                  style={{ 
+                    background: 'linear-gradient(90deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.45) 35%, rgba(0,0,0,0.15) 70%, rgba(0,0,0,0.05) 100%)'
+                  }}
                 />
                 
-                {/* Responsive content positioning */}
-                <div className="absolute inset-0 flex items-center px-4 sm:px-6 md:px-10 lg:px-14 z-20">
-                  <div className="max-w-[700px] text-left">
-                    {/* <div className="text-[0.65rem] sm:text-xs font-medium tracking-[0.25em] text-white/90 drop-shadow-md uppercase mb-3">
-                      HOME / CATEGORIES / {activeBanner.title.toUpperCase()}
-                    </div> */}
+                {/* Text Safe Zone — content container with constrained width */}
+                <div className="absolute inset-0 flex items-center px-5 sm:px-7 md:px-10 lg:px-14 z-20">
+                  <div 
+                    className="collection-hero-content text-left"
+                    style={{
+                      maxWidth: '500px',
+                    }}
+                  >
                     <h2 
-                      className="font-heading text-3xl md:text-5xl lg:text-6xl font-medium text-white mb-3 leading-tight tracking-wide drop-shadow-lg"
+                      className="font-heading text-white mb-3"
                       style={{
                         color: '#FFFFFF',
-                        fontWeight: 500,
-                        textShadow: '0 2px 4px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.4)'
+                        fontWeight: 400,
+                        lineHeight: 1.05,
+                        letterSpacing: '-0.02em',
+                        fontSize: 'clamp(2rem, 5vw, 5rem)',
+                        textShadow: '0 2px 8px rgba(0,0,0,0.4)',
                       }}
                     >
                       {activeBanner.title}
                     </h2>
                     <p 
-                      className="text-xs sm:text-sm text-white/95 max-w-2xl leading-relaxed"
+                      className="leading-relaxed"
                       style={{
-                        textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+                        color: 'rgba(255,255,255,0.92)',
+                        textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                        fontSize: 'clamp(0.95rem, 2vw, 1.1rem)',
+                        maxWidth: '520px',
+                        lineHeight: 1.6,
                       }}
                     >
                       {activeBanner.desc}
