@@ -6,11 +6,48 @@ import { API_BASE_URL } from './config.js';
 
 let cartListeners = [];
 let cartState = [];
+let confirmedCartState = [];
 
 let wishlistListeners = [];
 let wishlistState = [];
+let mutatingListeners = [];
+let mutatingItems = new Set();
 
 export const CartStore = {
+  getMutatingItems() {
+    return mutatingItems;
+  },
+
+  startMutation(itemKey) {
+    mutatingItems.add(itemKey);
+    this.dispatchMutating();
+  },
+
+  endMutation(itemKey) {
+    mutatingItems.delete(itemKey);
+    this.dispatchMutating();
+  },
+
+  subscribeMutating(listener) {
+    mutatingListeners.push(listener);
+    // Invoke immediately with current set copy
+    listener(new Set(mutatingItems));
+    return () => {
+      mutatingListeners = mutatingListeners.filter(l => l !== listener);
+    };
+  },
+
+  dispatchMutating() {
+    const copy = new Set(mutatingItems);
+    mutatingListeners.forEach(listener => {
+      try {
+        listener(copy);
+      } catch (e) {
+        console.error('Error in mutating listener:', e);
+      }
+    });
+  },
+
   load() {
     try {
       cartState = JSON.parse(localStorage.getItem('cartItems') || '[]');
@@ -18,6 +55,7 @@ export const CartStore = {
       console.error('Failed to parse cart items:', e);
       cartState = [];
     }
+    confirmedCartState = JSON.parse(JSON.stringify(cartState));
     this.dispatch();
     return cartState;
   },
@@ -31,6 +69,21 @@ export const CartStore = {
     }
     this.dispatch();
     // Dispatch standard window event for backward compatibility
+    window.dispatchEvent(new Event('cart-updated'));
+  },
+
+  commit() {
+    confirmedCartState = JSON.parse(JSON.stringify(cartState));
+  },
+
+  rollback() {
+    cartState = JSON.parse(JSON.stringify(confirmedCartState));
+    try {
+      localStorage.setItem('cartItems', JSON.stringify(cartState));
+    } catch (e) {
+      console.error('Failed to rollback cart items:', e);
+    }
+    this.dispatch();
     window.dispatchEvent(new Event('cart-updated'));
   },
 
@@ -82,6 +135,7 @@ export const CartStore = {
           };
         });
         this.save(mappedCart);
+        this.commit();
         return true;
       }
       return false;

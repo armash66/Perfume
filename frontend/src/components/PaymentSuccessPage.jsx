@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { API_BASE_URL } from '../utils/config.js';
+import { clearCart } from '../utils/cartHelper.js';
 
 export default function PaymentSuccessPage() {
   const { isSignedIn, getToken } = useAuth();
@@ -20,9 +21,8 @@ export default function PaymentSuccessPage() {
   const paymentId = params.get('paymentId');
 
   useEffect(() => {
-    // Clear cart immediately upon landing on the success page
-    localStorage.removeItem('cartItems');
-    window.dispatchEvent(new Event('cart-updated'));
+    // Clear cart immediately upon landing on the success page using the authoritative helper
+    clearCart();
 
     // Analytics hook
     window.dispatchEvent(new CustomEvent('payment_success', {

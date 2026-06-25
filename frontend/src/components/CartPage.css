@@ -22,6 +22,22 @@
     gap: 3.5rem;
   }
 }
+/* Mobile summary wrap hidden on desktop */
+.checkout-mobile-summary-wrapper {
+  display: block;
+}
+
+@media (min-width: 1024px) {
+  .checkout-mobile-summary-wrapper {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .luxury-cart-grid.checkout-active .luxury-cart-summary-pane {
+    display: none;
+  }
+}
 
 /* Left Pane Product Row list */
 .luxury-cart-left-pane {

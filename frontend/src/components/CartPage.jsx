@@ -22,6 +22,8 @@ export default function CartPage({ onBackToShop, products = [] }) {
   const { isSignedIn, getToken } = useAuth();
   const { user } = useUser();
   const [cartItems, setCartItems] = useState([]);
+  const [mutatingItems, setMutatingItems] = useState(new Set());
+  const [isUpdatingCart, setIsUpdatingCart] = useState(false);
   const [checkoutState, setCheckoutState] = useState('IDLE');
 
   // Checkout flow states
@@ -68,7 +70,6 @@ export default function CartPage({ onBackToShop, products = [] }) {
   
   // Order notes & placement states
   const [notes, setNotes] = useState('');
-  const [giftWrapping, setGiftWrapping] = useState(false);
   const [galleryIndexMap, setGalleryIndexMap] = useState({});
   const [placingOrder, setPlacingOrder] = useState(false);
   const [orderPlacedSuccess, setOrderPlacedSuccess] = useState(false);
@@ -84,8 +85,12 @@ export default function CartPage({ onBackToShop, products = [] }) {
 
   // Sync cart items on load and list for updates via CartStore subscription
   useEffect(() => {
-    const unsubscribe = CartStore.subscribe(setCartItems);
-    return unsubscribe;
+    const unsubscribeCart = CartStore.subscribe(setCartItems);
+    const unsubscribeMutating = CartStore.subscribeMutating(setMutatingItems);
+    return () => {
+      unsubscribeCart();
+      unsubscribeMutating();
+    };
   }, []);
 
   // Fetch store settings on mount
@@ -125,14 +130,61 @@ export default function CartPage({ onBackToShop, products = [] }) {
   }, [isSignedIn]);
 
   // Wrapper handlers for cart operations to pass auth token
-  const handleUpdateQuantity = async (variantIdOrId, size, newQty) => {
-    const token = isSignedIn ? await getToken() : null;
-    await updateQuantity(variantIdOrId, size, newQty, token);
+  const handleUpdateQuantity = async (variantIdOrId, size, newQty, currentRenderQty) => {
+    if (isCheckingOut) {
+      showToast('Cannot modify cart while checkout is in progress.', 'warning');
+      return;
+    }
+    const qty = parseInt(newQty);
+    if (isNaN(qty) || qty === null || qty === undefined) {
+      showToast('Invalid quantity value.', 'error');
+      return;
+    }
+    if (qty < 0) {
+      showToast('Quantity cannot be negative.', 'error');
+      return;
+    }
+
+    // Determine the latest quantity from the store
+    const latestCart = CartStore.getState();
+    const latestItem = latestCart.find(ci => (ci.variantId && variantIdOrId === ci.variantId) || (ci.id === variantIdOrId && ci.size === size));
+    const baseQty = latestItem ? latestItem.quantity : currentRenderQty;
+    const delta = qty - currentRenderQty;
+    const targetQty = baseQty + delta;
+
+    if (targetQty < 0) return;
+
+    // Check stock boundary using targetQty
+    if (latestItem) {
+      const product = products.find(p => p.id === latestItem.productId || p.id === latestItem.id);
+      if (product && product.sizes) {
+        const sizeOption = product.sizes.find(s => s.size === size);
+        if (sizeOption && targetQty > sizeOption.stock) {
+          showToast(`Cannot exceed available stock. Only ${sizeOption.stock} available.`, "warning");
+          return;
+        }
+      }
+    }
+
+    try {
+      const token = isSignedIn ? await getToken() : null;
+      await updateQuantity(variantIdOrId, size, targetQty, token);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleRemoveFromCart = async (variantIdOrId, size) => {
-    const token = isSignedIn ? await getToken() : null;
-    await removeFromCart(variantIdOrId, size, token);
+    if (isCheckingOut) {
+      showToast('Cannot modify cart while checkout is in progress.', 'warning');
+      return;
+    }
+    try {
+      const token = isSignedIn ? await getToken() : null;
+      await removeFromCart(variantIdOrId, size, token);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Fetch addresses when checkout starts or is active
@@ -239,7 +291,95 @@ export default function CartPage({ onBackToShop, products = [] }) {
     return subtotal >= threshold ? 0 : charge;
   }, [subtotal, deliveryMethod, storeSettings]);
 
-  const grandTotal = subtotal + shipping + (giftWrapping ? 150 : 0);
+  const grandTotal = subtotal + shipping;
+
+  const renderOrderSummary = (isMobile = false) => {
+    return (
+      <div className={`luxury-summary-card ${isMobile ? 'checkout-mobile-summary mt-6' : ''}`}>
+        <h2 className="font-body text-xs font-bold tracking-[2px] uppercase mb-6 pb-2.5 border-b border-black/8">
+          Order Summary
+        </h2>
+
+        <div className="space-y-4 text-xs font-body mb-6">
+          {/* Summary Item list when checking out */}
+          {isCheckingOut && (
+            <div className="checkout-summary-items-mini border-b border-black/5 pb-4 mb-4 space-y-3.5 max-h-[160px] overflow-y-auto scrollbar-hide">
+              {cartItems.map(item => (
+                <div key={`${item.id}-${item.size}`} className="flex justify-between items-center text-[0.72rem] text-black/70">
+                  <span className="truncate max-w-[180px]">{item.name} <strong className="font-semibold text-[#1C1B18]">x{item.quantity}</strong></span>
+                  <span>₹{(item.price * item.quantity).toLocaleString('en-IN')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-between items-center">
+            <span className="text-black/50">SUBTOTAL</span>
+            <span className="font-semibold">₹{subtotal.toLocaleString('en-IN')}</span>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <span className="text-black/50">SHIPPING</span>
+            <span className="font-semibold text-[#8B672F]">
+              {shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <span className="text-black/50">ESTIMATED TAX</span>
+            <span className="font-semibold text-black/40">Included</span>
+          </div>
+        </div>
+
+        {/* Free delivery promo banner */}
+        {subtotal > 0 && !isCheckingOut && (
+          <div className="summary-promo-banner mb-6">
+            {subtotal >= FREE_SHIPPING_THRESHOLD ? (
+              <div className="text-[0.62rem] font-bold text-center text-[#8B672F] tracking-wider uppercase py-1">
+                <i className="fas fa-circle-check mr-1"></i> Complimentary Shipping Unlocked
+              </div>
+            ) : (
+              <div className="flex justify-between items-center text-[0.62rem] font-bold text-black/60 tracking-wider uppercase">
+                <span>Add ₹{(FREE_SHIPPING_THRESHOLD - subtotal).toLocaleString('en-IN')} for Free Delivery</span>
+                <button onClick={handleBackToShop} className="underline text-[#8B672F] hover:text-[#1C1B18] cursor-pointer">
+                  Add
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="border-t border-black/8 pt-6 mb-8 flex justify-between items-center">
+          <span className="font-body text-xs font-bold tracking-wider uppercase">Total</span>
+          <span className="font-heading text-2xl font-semibold text-[#8B672F]">
+            ₹{grandTotal.toLocaleString('en-IN')}
+          </span>
+        </div>
+
+        {!isCheckingOut && (
+          isSignedIn ? (
+            <button 
+              onClick={handleContinueToCheckout} 
+              disabled={mutatingItems.size > 0}
+              className="luxury-summary-checkout-btn disabled:opacity-55 disabled:cursor-not-allowed"
+            >
+              <span>{mutatingItems.size > 0 ? 'Updating Bag...' : 'Proceed to Checkout'}</span>
+              {mutatingItems.size === 0 && <span className="arrow">→</span>}
+            </button>
+          ) : (
+            <SignInButton mode="modal">
+              <button 
+                disabled={mutatingItems.size > 0}
+                className="luxury-summary-checkout-btn disabled:opacity-55 disabled:cursor-not-allowed"
+              >
+                <span>Sign In to Checkout</span>
+              </button>
+            </SignInButton>
+          )
+        )}
+      </div>
+    );
+  };
 
   const handleBackToShop = () => {
     if (onBackToShop) {
@@ -374,7 +514,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
           addressId: selectedAddressId,
           items,
           paymentMethod,
-          notes: giftWrapping ? `[GIFT WRAP REQUESTED (+₹150)] ${notes}` : notes
+          notes
         })
       });
 
@@ -763,7 +903,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
             })}
           </div>
 
-        <div className="luxury-cart-grid">
+        <div className={`luxury-cart-grid ${isCheckingOut ? 'checkout-active' : ''}`}>
           
           {/* LEFT PANEL: Cart Rows or Multi-Step Form */}
           <div className={`luxury-cart-left-pane ${isCheckoutInProgress ? 'checkout-disabled-element' : ''}`}>
@@ -801,6 +941,10 @@ export default function CartPage({ onBackToShop, products = [] }) {
                     const activeImgIdx = galleryIndexMap[itemKey] || 0;
                     const activeImage = (gallery[activeImgIdx] || item.image) || '/images/perfume_placeholder.jpeg';
 
+                    const itemMutating = mutatingItems.has(item.variantId) || 
+                                         mutatingItems.has((item.variantId || item.id) + '_' + item.size) ||
+                                         mutatingItems.has(item.id + '_' + item.size);
+
                     return (
                       <div key={itemKey} className="product-row py-6 first:pt-0">
                         <div className="flex flex-col md:flex-row gap-6 items-center md:items-start text-center md:text-left w-full">
@@ -826,93 +970,74 @@ export default function CartPage({ onBackToShop, products = [] }) {
                               </div>
                             )}
                           </div>
-
-                          {/* Product Details */}
-                          <div className="flex-1 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
-                            <div className="space-y-1 w-full text-center md:text-left">
-                              <span className="text-[0.58rem] font-bold text-black/40 uppercase tracking-widest block">
-                                {item.brand ? item.brand.toUpperCase() : 'DECANTS'}
-                              </span>
-                              <h3 className="font-heading text-lg font-normal text-[#1C1B18] text-center md:text-left">
-                                {item.name}
-                              </h3>
-                              <span className="text-[0.72rem] text-black/50 block font-body text-center md:text-left">
-                                Size: {item.size} {item.label && `(${item.label})`}
-                              </span>
-                            </div>
-
-                            {/* Price & Quantity Selector Column */}
-                            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 justify-center md:justify-end w-full mt-2 md:mt-0">
-                              <div className="text-center md:text-left">
-                                <span className="text-[0.62rem] font-bold text-black/40 uppercase tracking-widest block mb-1">Price</span>
-                                <span className="text-xs font-semibold">₹{item.price.toLocaleString('en-IN')}</span>
-                              </div>
-
-                              {/* Inline Quantity Controls */}
-                              <div className="text-center">
-                                <span className="text-[0.62rem] font-bold text-black/40 uppercase tracking-widest block mb-1">Quantity</span>
-                                <div className="flex items-center border border-black/8 bg-white h-11 md:h-9 px-1">
-                                  <button 
-                                    onClick={() => handleUpdateQuantity(item.variantId || item.id, item.size, item.quantity - 1)}
-                                    className="w-11 h-full md:w-6 flex items-center justify-center text-xs text-black/55 hover:text-black cursor-pointer min-h-[44px] md:min-h-0"
-                                    aria-label="Decrease quantity"
-                                  >
-                                    <i className="fas fa-minus text-[10px]"></i>
-                                  </button>
-                                  <span className="w-8 text-center text-xs font-bold text-[#1C1B18] select-none">
-                                    {item.quantity}
-                                  </span>
-                                  <button 
-                                    onClick={() => handleUpdateQuantity(item.variantId || item.id, item.size, item.quantity + 1)}
-                                    className="w-11 h-full md:w-6 flex items-center justify-center text-xs text-black/55 hover:text-black cursor-pointer min-h-[44px] md:min-h-0"
-                                    aria-label="Increase quantity"
-                                  >
-                                    <i className="fas fa-plus text-[10px]"></i>
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Delete Item */}
-                              <div className="text-center flex flex-col items-center">
-                                <span className="text-[0.62rem] font-bold text-black/40 uppercase tracking-widest block mb-1">Remove</span>
-                                <button 
-                                  onClick={() => handleRemoveFromCart(item.variantId || item.id, item.size)}
-                                  className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-xs text-black/45 hover:text-black transition-colors cursor-pointer"
-                                  title="Delete Item"
-                                >
-                                  <i className="far fa-trash-can"></i>
-                                </button>
-                              </div>
-                            </div>
-
-                          </div>
-
-                        </div>
-                      </div>
-                    );
-                  })}
+ 
+                           {/* Product Details */}
+                           <div className="flex-1 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                             <div className="space-y-1 w-full text-center md:text-left">
+                               <span className="text-[0.58rem] font-bold text-black/40 uppercase tracking-widest block block">
+                                 {item.brand ? item.brand.toUpperCase() : 'DECANTS'}
+                               </span>
+                               <h3 className="font-heading text-lg font-normal text-[#1C1B18] text-center md:text-left">
+                                 {item.name}
+                               </h3>
+                               <span className="text-[0.72rem] text-black/50 block font-body text-center md:text-left">
+                                 Size: {item.size} {item.label && `(${item.label})`}
+                               </span>
+                             </div>
+ 
+                             {/* Price & Quantity Selector Column */}
+                             <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 justify-center md:justify-end w-full mt-2 md:mt-0">
+                               <div className="text-center md:text-left">
+                                 <span className="text-[0.62rem] font-bold text-black/40 uppercase tracking-widest block mb-1">Price</span>
+                                 <span className="text-xs font-semibold">₹{item.price.toLocaleString('en-IN')}</span>
+                               </div>
+ 
+                               {/* Inline Quantity Controls */}
+                               <div className="text-center">
+                                 <span className="text-[0.62rem] font-bold text-black/40 uppercase tracking-widest block mb-1">Quantity</span>
+                                 <div className="flex items-center border border-black/8 bg-white h-11 md:h-9 px-1">
+                                   <button 
+                                     onClick={() => handleUpdateQuantity(item.variantId || item.id, item.size, item.quantity - 1, item.quantity)}
+                                     disabled={isCheckingOut}
+                                     className="w-11 h-full md:w-6 flex items-center justify-center text-xs text-black/55 hover:text-black cursor-pointer min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                     aria-label="Decrease quantity"
+                                   >
+                                     <i className="fas fa-minus text-[10px]"></i>
+                                   </button>
+                                   <span className="w-8 text-center text-xs font-bold text-[#1C1B18] select-none">
+                                     {item.quantity}
+                                   </span>
+                                   <button 
+                                     onClick={() => handleUpdateQuantity(item.variantId || item.id, item.size, item.quantity + 1, item.quantity)}
+                                     disabled={isCheckingOut}
+                                     className="w-11 h-full md:w-6 flex items-center justify-center text-xs text-black/55 hover:text-black cursor-pointer min-h-[44px] md:min-h-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                     aria-label="Increase quantity"
+                                   >
+                                     <i className="fas fa-plus text-[10px]"></i>
+                                   </button>
+                                 </div>
+                               </div>
+ 
+                               {/* Delete Item */}
+                               <div className="text-center flex flex-col items-center">
+                                 <span className="text-[0.62rem] font-bold text-black/40 uppercase tracking-widest block mb-1">Remove</span>
+                                 <button 
+                                   onClick={() => handleRemoveFromCart(item.variantId || item.id, item.size)}
+                                   disabled={isUpdatingCart || isCheckingOut || itemMutating}
+                                   className="w-11 h-11 md:w-auto md:h-auto flex items-center justify-center text-xs text-black/45 hover:text-black transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                   title="Delete Item"
+                                 >
+                                   <i className="far fa-trash-can"></i>
+                                 </button>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+                       </div>
+                     );
+                   })}
                 </div>
 
-                {/* Checkbox option for Signature Gift Wrapping */}
-                <div className="bg-[#FEFCF9] border border-black/5 p-6 flex items-center justify-between text-left shadow-sm">
-                  <div className="flex items-start gap-4">
-                    <span className="text-2xl mt-0.5">🎁</span>
-                    <div>
-                      <h4 className="text-xs font-bold text-[#1C1B18] uppercase tracking-wider">
-                        Signature Gift Wrapping (+₹150)
-                      </h4>
-                      <p className="text-[0.68rem] text-black/50 mt-1 leading-relaxed">
-                        Housed in a luxury textured paper box with signature hot-stamped gold foil ribbon, including a custom handwritten notes card.
-                      </p>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={giftWrapping}
-                    onChange={(e) => setGiftWrapping(e.target.checked)}
-                    className="accent-[#8B672F] w-5 h-5 cursor-pointer ml-4"
-                  />
-                </div>
 
                 {/* Order Notes comments field */}
                 <div className="bg-[#FEFCF9] border border-black/5 p-6 text-left shadow-sm">
@@ -1145,6 +1270,11 @@ export default function CartPage({ onBackToShop, products = [] }) {
                       </div>
                     )}
 
+                    {/* Mobile Summary Panel */}
+                    <div className="checkout-mobile-summary-wrapper">
+                      {renderOrderSummary(true)}
+                    </div>
+
                     {/* Step 1 Actions */}
                     <div className="checkout-step-actions">
                       <button
@@ -1156,7 +1286,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
                       <button
                         disabled={!selectedAddressId}
                         onClick={() => setCheckoutStep(2)}
-                        className="py-3 px-8 bg-[#1C1B18] hover:bg-[#B08A50] text-[#FEFCF9] text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="checkout-primary-btn"
                       >
                         Continue to Delivery
                       </button>
@@ -1202,6 +1332,11 @@ export default function CartPage({ onBackToShop, products = [] }) {
                       </div>
                     </div>
 
+                    {/* Mobile Summary Panel */}
+                    <div className="checkout-mobile-summary-wrapper">
+                      {renderOrderSummary(true)}
+                    </div>
+
                     {/* Step 2 Actions */}
                     <div className="checkout-step-actions">
                       <button
@@ -1212,7 +1347,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
                       </button>
                       <button
                         onClick={() => setCheckoutStep(3)}
-                        className="py-3 px-8 bg-[#1C1B18] hover:bg-[#B08A50] text-[#FEFCF9] text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300"
+                        className="checkout-primary-btn"
                       >
                         Continue to Payment
                       </button>
@@ -1253,27 +1388,44 @@ export default function CartPage({ onBackToShop, products = [] }) {
                       </div>
 
                       <div 
-                        onClick={() => setPaymentMethod('RAZORPAY')}
-                        className={`payment-option-box ${paymentMethod === 'RAZORPAY' ? 'active' : ''}`}
+                        onClick={() => {
+                          setPaymentMethod('COD');
+                          window.dispatchEvent(new CustomEvent('payment_method_selected', { detail: { method: 'COD' } }));
+                        }}
+                        className={`payment-option-box ${paymentMethod === 'COD' ? 'active' : ''}`}
+                        role="radio"
+                        aria-checked={paymentMethod === 'COD'}
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === 'Enter' && setPaymentMethod('COD')}
                       >
-                        <span className="text-xs font-bold block mb-1">Simulated Card Validation</span>
-                        <p className="text-[0.68rem] text-black/60 leading-relaxed font-body">
-                          Simulated Razorpay transaction for instant and secure ledger logging.
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${paymentMethod === 'COD' ? 'border-[#1C1B18]' : 'border-black/20'}`}>
+                            {paymentMethod === 'COD' && <div className="w-2 h-2 rounded-full bg-[#1C1B18]" />}
+                          </div>
+                          <span className="text-xs font-bold">Cash on Delivery (COD)</span>
+                        </div>
+                        <p className="text-[0.68rem] text-black/60 leading-relaxed font-body pl-7">
+                          Pay with cash upon delivery. No card details required.
                         </p>
                       </div>
                     </div>
 
+                    {/* Mobile Summary Panel */}
+                    <div className="checkout-mobile-summary-wrapper">
+                      {renderOrderSummary(true)}
+                    </div>
+
                     {/* Step Actions */}
-                    <div className="pt-8 border-t border-black/8 flex items-center justify-between">
+                    <div className="checkout-step-actions">
                       <button
                         onClick={() => setCheckoutStep(2)}
-                        className="text-[0.65rem] font-bold tracking-widest uppercase text-black/45 hover:text-black transition-colors"
+                        className="checkout-back-btn"
                       >
                         Back to Delivery
                       </button>
                       <button
                         onClick={() => setCheckoutStep(4)}
-                        className="py-3 px-8 bg-[#1C1B18] hover:bg-[#B08A50] text-[#FEFCF9] text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300"
+                        className="checkout-primary-btn"
                       >
                         Continue to Review
                       </button>
@@ -1289,6 +1441,11 @@ export default function CartPage({ onBackToShop, products = [] }) {
                       <p className="text-xs text-black/45 font-body">Verify all delivery and ledger parameters before validating purchase.</p>
                     </div>
 
+                    {/* Mobile Summary Panel */}
+                    <div className="checkout-mobile-summary-wrapper">
+                      {renderOrderSummary(true)}
+                    </div>
+
                     {/* Step 3 Actions */}
                     <div className="checkout-step-actions">
                       <button
@@ -1300,7 +1457,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
                       <button
                         onClick={handlePlaceOrder}
                         disabled={placingOrder || !selectedAddressId}
-                        className="py-3.5 px-8 bg-[#1C1B18] hover:bg-[#B08A50] text-[#FEFCF9] text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300 shadow-md"
+                        className="checkout-primary-btn shadow-md"
                       >
                         {paymentMethod === 'RAZORPAY' ? 'Continue to Secure Payment' : 'Complete Purchase'}
                       </button>
@@ -1312,85 +1469,8 @@ export default function CartPage({ onBackToShop, products = [] }) {
             )}
           </div>
 
-          {/* RIGHT PANEL: Sticky Order Summary */}
           <div className={`luxury-cart-summary-pane ${isCheckoutInProgress ? 'checkout-disabled-element' : ''}`}>
-            <div className="luxury-summary-card">
-              <h2 className="font-body text-xs font-bold tracking-[2px] uppercase mb-6 pb-2.5 border-b border-black/8">
-                Order Summary
-              </h2>
-
-              <div className="space-y-4 text-xs font-body mb-6">
-                
-                {/* Summary Item list when checking out */}
-                {isCheckingOut && (
-                  <div className="checkout-summary-items-mini border-b border-black/5 pb-4 mb-4 space-y-3.5 max-h-[160px] overflow-y-auto scrollbar-hide">
-                    {cartItems.map(item => (
-                      <div key={`${item.id}-${item.size}`} className="flex justify-between items-center text-[0.72rem] text-black/70">
-                        <span className="truncate max-w-[180px]">{item.name} <strong className="font-semibold text-[#1C1B18]">x{item.quantity}</strong></span>
-                        <span>₹{(item.price * item.quantity).toLocaleString('en-IN')}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center">
-                  <span className="text-black/50">SUBTOTAL</span>
-                  <span className="font-semibold">₹{subtotal.toLocaleString('en-IN')}</span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-black/50">SHIPPING</span>
-                  <span className="font-semibold text-[#8B672F]">
-                    {shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-black/50">ESTIMATED TAX</span>
-                  <span className="font-semibold text-black/40">Included</span>
-                </div>
-              </div>
-
-              {/* Free delivery promo banner */}
-              {subtotal > 0 && !isCheckingOut && (
-                <div className="summary-promo-banner mb-6">
-                  {subtotal >= FREE_SHIPPING_THRESHOLD ? (
-                    <div className="text-[0.62rem] font-bold text-center text-[#8B672F] tracking-wider uppercase py-1">
-                      <i className="fas fa-circle-check mr-1"></i> Complimentary Shipping Unlocked
-                    </div>
-                  ) : (
-                    <div className="flex justify-between items-center text-[0.62rem] font-bold text-black/60 tracking-wider uppercase">
-                      <span>Add ₹{(FREE_SHIPPING_THRESHOLD - subtotal).toLocaleString('en-IN')} for Free Delivery</span>
-                      <button onClick={handleBackToShop} className="underline text-[#8B672F] hover:text-[#1C1B18] cursor-pointer">
-                        Add
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="border-t border-black/8 pt-6 mb-8 flex justify-between items-center">
-                <span className="font-body text-xs font-bold tracking-wider uppercase">Total</span>
-                <span className="font-heading text-2xl font-semibold text-[#8B672F]">
-                  ₹{grandTotal.toLocaleString('en-IN')}
-                </span>
-              </div>
-
-              {!isCheckingOut && (
-                isSignedIn ? (
-                  <button onClick={handleContinueToCheckout} className="luxury-summary-checkout-btn">
-                    <span>Proceed to Checkout</span>
-                    <span className="arrow">→</span>
-                  </button>
-                ) : (
-                  <SignInButton mode="modal">
-                    <button className="luxury-summary-checkout-btn">
-                      <span>Sign In to Checkout</span>
-                    </button>
-                  </SignInButton>
-                )
-              )}
-            </div>
+            {renderOrderSummary(false)}
           </div>
 
         </div>

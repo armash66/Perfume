@@ -348,7 +348,8 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
 
   useEffect(() => {
     const unsubscribe = CartStore.subscribe(cart => {
-      setCartCount(cart.length);
+      const totalCount = cart.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+      setCartCount(totalCount);
     });
     return unsubscribe;
   }, []);

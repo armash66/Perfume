@@ -115,13 +115,17 @@ export default function SignatureCollection({
 
   const [wishlist, setWishlist] = useState(() => WishlistStore.getState());
   const [cartItems, setCartItems] = useState(() => CartStore.getState());
+  const [mutatingItems, setMutatingItems] = useState(new Set());
+  const [isUpdatingCart, setIsUpdatingCart] = useState(false);
 
   useEffect(() => {
     const unsubscribeCart = CartStore.subscribe(setCartItems);
     const unsubscribeWishlist = WishlistStore.subscribe(setWishlist);
+    const unsubscribeMutating = CartStore.subscribeMutating(setMutatingItems);
     return () => {
       unsubscribeCart();
       unsubscribeWishlist();
+      unsubscribeMutating();
     };
   }, []);
 
@@ -131,23 +135,39 @@ export default function SignatureCollection({
     showToast(added ? 'Added to your wishlist' : 'Removed from your wishlist', 'success');
   };
 
-  const handleUpdateQuantity = async (item, sizeOption, newQty, e) => {
-    e.stopPropagation();
-    const token = isSignedIn ? await getToken() : null;
+  const handleUpdateQuantity = async (item, sizeOption, newQty, currentRenderQty, e) => {
+    if (e) e.stopPropagation();
+    const qty = parseInt(newQty);
+    if (isNaN(qty) || qty < 0) return;
+
     const sizeLabel = sizeOption.size || 'Default Size';
-    
-    // Find matching size variant ID if available
-    let id = item.id;
-    if (sizeOption.variantId) {
-      id = sizeOption.variantId;
-    } else {
+    let id = sizeOption.variantId;
+    if (!id) {
       const sizes = item.sizes || [];
       const match = sizes.find(s => s.size === sizeLabel);
-      if (match && match.variantId) {
-        id = match.variantId;
-      }
+      if (match) id = match.variantId;
     }
-    await updateQuantity(id, sizeLabel, newQty, token);
+    const finalId = id || item.id;
+
+    // Determine the latest quantity from the store
+    const latestCart = CartStore.getState();
+    const latestItem = latestCart.find(ci => (ci.variantId && finalId === ci.variantId) || (ci.id === finalId && ci.size === sizeLabel));
+    const baseQty = latestItem ? latestItem.quantity : currentRenderQty;
+    const delta = qty - currentRenderQty;
+    const targetQty = baseQty + delta;
+
+    if (targetQty < 0) return;
+    if (targetQty > sizeOption.stock) {
+      showToast(`Cannot exceed available stock. Only ${sizeOption.stock} available.`, "warning");
+      return;
+    }
+
+    try {
+      const token = isSignedIn ? await getToken() : null;
+      await updateQuantity(finalId, sizeLabel, targetQty, token);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const [selectedCardSizes, setSelectedCardSizes] = useState({});
@@ -167,14 +187,22 @@ export default function SignatureCollection({
 
   const handleCardAddToCart = async (item, sizeOption, e) => {
     e.stopPropagation();
+    if (addingItemId || isUpdatingCart) return;
     setAddingItemId(item.id);
+    setIsUpdatingCart(true);
     
-    const token = isSignedIn ? await getToken() : null;
-    await addToCart(item, sizeOption, 1, token);
-
-    setTimeout(() => {
+    try {
+      const token = isSignedIn ? await getToken() : null;
+      const result = await addToCart(item, sizeOption, 1, token);
+      if (result && result.success) {
+        window.location.hash = 'cart';
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
       setAddingItemId(null);
-    }, 500);
+      setIsUpdatingCart(false);
+    }
   };
 
   const [dbCategories, setDbCategories] = useState([]);
@@ -363,6 +391,14 @@ export default function SignatureCollection({
     };
     return tagsMap[currentCategory] || currentCategory.toUpperCase();
   }, [currentCategory]);
+
+  const drawerItemMutating = useMemo(() => {
+    if (!selectedItem) return false;
+    const drawerOption = selectedItem.sizes[selectedSizeIndex] || { size: 'Default' };
+    return mutatingItems.has(drawerOption.variantId) || 
+           mutatingItems.has((drawerOption.variantId || selectedItem.id) + '_' + drawerOption.size) ||
+           mutatingItems.has(selectedItem.id + '_' + drawerOption.size);
+  }, [selectedItem, selectedSizeIndex, mutatingItems]);
 
   return (
     <section className="relative bg-[#F7F3ED] pt-6 pb-16 md:pt-8 md:pb-20 lg:pt-10 lg:pb-24 overflow-hidden select-none font-body text-[#1C1B18]">
@@ -573,232 +609,238 @@ export default function SignatureCollection({
           <div className="py-20 text-center text-red-700">{collectionsError}</div>
         ) : filteredAndSortedItems.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 md:gap-x-6 lg:gap-x-8 gap-y-8 md:gap-y-12 lg:gap-y-16">
-            {filteredAndSortedItems.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => handleProductClick(item.id)}
-                className="
-                  group h-full flex flex-col bg-transparent rounded-none
-                  border-0 shadow-none overflow-hidden cursor-pointer
-                "
-              >
-                {/* Product Image and Badges */}
-                <div className="relative aspect-[4/5] overflow-hidden bg-[#F7F3ED]/30">
-                  {item.image && item.image.trim() !== "" ? (
-                    <img
-                      src={sanitizeImageUrl(item.image)}
-                      alt={item.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-102"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-[#F1ECE4] relative group-hover:scale-102 transition-transform duration-700 ease-out">
-                      <div className="text-4xl md:text-5xl font-heading font-light tracking-widest border rounded-full w-20 h-20 flex items-center justify-center bg-white/40 shadow-inner" style={{ color: '#8B672F', borderColor: 'rgba(139,103,47,0.2)' }}>
-                        {item.name ? item.name.charAt(0).toUpperCase() : 'A'}
+            {filteredAndSortedItems.map((item) => {
+              const cardSizeIdx = getCardSizeIndex(item.id);
+              const cardOption = item.sizes && item.sizes[cardSizeIdx] ? item.sizes[cardSizeIdx] : { size: 'Default' };
+              const itemMutating = mutatingItems.has(cardOption.variantId) || 
+                                   mutatingItems.has((cardOption.variantId || item.id) + '_' + cardOption.size) ||
+                                   mutatingItems.has(item.id + '_' + cardOption.size);
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => handleProductClick(item.id)}
+                  className="
+                    group h-full flex flex-col bg-transparent rounded-none
+                    border-0 shadow-none overflow-hidden cursor-pointer
+                  "
+                >
+                  {/* Product Image and Badges */}
+                  <div className="relative aspect-[4/5] overflow-hidden bg-[#F7F3ED]/30">
+                    {item.image && item.image.trim() !== "" ? (
+                      <img
+                        src={sanitizeImageUrl(item.image)}
+                        alt={item.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-102"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-[#F1ECE4] relative group-hover:scale-102 transition-transform duration-700 ease-out">
+                        <div className="text-4xl md:text-5xl font-heading font-light tracking-widest border rounded-full w-20 h-20 flex items-center justify-center bg-white/40 shadow-inner" style={{ color: '#8B672F', borderColor: 'rgba(139,103,47,0.2)' }}>
+                          {item.name ? item.name.charAt(0).toUpperCase() : 'A'}
+                        </div>
+                        <div className="text-[0.65rem] tracking-[0.2em] font-body uppercase mt-4 font-semibold" style={{ color: '#8B672F' }}>
+                          {item.brand || 'Decant Atelier'}
+                        </div>
                       </div>
-                      <div className="text-[0.65rem] tracking-[0.2em] font-body uppercase mt-4 font-semibold" style={{ color: '#8B672F' }}>
-                        {item.brand || 'Decant Atelier'}
-                      </div>
+                    )}
+
+                    {/* Wishlist Heart Icon Button */}
+                    <button
+                      onClick={(e) => toggleWishlist(item.id, e)}
+                      className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm border border-black/5 flex items-center justify-center hover:text-[#FF003C] hover:bg-white transition-all duration-300 shadow-sm cursor-pointer"
+                      style={{ color: '#2C2926' }}
+                      aria-label="Toggle wishlist"
+                    >
+                      <i className={`${wishlist.includes(item.id) ? 'fas fa-heart text-[#FF003C]' : 'far fa-heart'}`} />
+                    </button>
+
+                    {/* Overlays Badges */}
+                    <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 pointer-events-none items-start">
+                      {item.tags && item.tags.includes('featured') && (
+                        <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5" style={{ color: '#8B672F' }}>
+                          BESTSELLER
+                        </span>
+                      )}
+                      {item.tags && item.tags.includes('new-arrival') && (
+                        <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5" style={{ color: '#2C2926' }}>
+                          NEW
+                        </span>
+                      )}
+                      {item.tags && item.tags.includes('low-stock') && (
+                        <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase text-[#E67E22] bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5">
+                          LIMITED
+                        </span>
+                      )}
+                      {item.tags && item.tags.includes('out-of-stock') && (
+                        <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase text-[#FF003C] bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5">
+                          SOLD OUT
+                        </span>
+                      )}
                     </div>
-                  )}
-
-                  {/* Wishlist Heart Icon Button */}
-                  <button
-                    onClick={(e) => toggleWishlist(item.id, e)}
-                    className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm border border-black/5 flex items-center justify-center hover:text-[#FF003C] hover:bg-white transition-all duration-300 shadow-sm cursor-pointer"
-                    style={{ color: '#2C2926' }}
-                    aria-label="Toggle wishlist"
-                  >
-                    <i className={`${wishlist.includes(item.id) ? 'fas fa-heart text-[#FF003C]' : 'far fa-heart'}`} />
-                  </button>
-
-                  {/* Overlays Badges */}
-                  <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 pointer-events-none items-start">
-                    {item.tags && item.tags.includes('featured') && (
-                      <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5" style={{ color: '#8B672F' }}>
-                        BESTSELLER
-                      </span>
-                    )}
-                    {item.tags && item.tags.includes('new-arrival') && (
-                      <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5" style={{ color: '#2C2926' }}>
-                        NEW
-                      </span>
-                    )}
-                    {item.tags && item.tags.includes('low-stock') && (
-                      <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase text-[#E67E22] bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5">
-                        LIMITED
-                      </span>
-                    )}
-                    {item.tags && item.tags.includes('out-of-stock') && (
-                      <span className="text-[0.55rem] font-bold tracking-[0.15em] uppercase text-[#FF003C] bg-[#FEFCF9]/90 backdrop-blur-[2px] px-2 py-0.5">
-                        SOLD OUT
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Info block */}
-                <div className="pt-4 flex flex-col flex-1">
-                  {/* Brand / Category Badge */}
-                  <span className="text-[0.6rem] tracking-[0.15em] uppercase font-bold text-left block mb-1" style={{ color: '#8B672F' }}>
-                    {item.category === 'sets' ? 'CURATED SET' : (item.brand || 'FRAGRANCE')}
-                  </span>
-
-                  {/* Product Title */}
-                  <h3 className="font-heading text-[0.95rem] font-normal mb-1 tracking-wide leading-tight group-hover:text-policy-gold transition-colors duration-300 line-clamp-1 text-left" style={{ color: '#3A3632' }}>
-                    {item.name}
-                  </h3>
-
-                  {/* Scent Profile notes */}
-                  {item.notes && item.notes.length > 0 && (
-                    <div className="text-[0.7rem] text-left font-light tracking-wide mb-1.5 font-body" style={{ color: '#5A5550' }}>
-                      {item.notes.slice(0, 2).join(' • ')}
-                    </div>
-                  )}
-
-                  {/* Selected size price */}
-                  <div className="text-xs font-semibold mb-3 text-left" style={{ color: '#2C2926' }}>
-                    ₹{(() => {
-                      const idx = getCardSizeIndex(item.id);
-                      const priceVal = item.sizes && item.sizes[idx] ? item.sizes[idx].price : item.price;
-                      return priceVal.toLocaleString('en-IN');
-                    })()}
                   </div>
 
-                  {/* Size selectors */}
-                  <div className="min-h-[36px] mb-4 flex items-center justify-start overflow-visible">
-                    {item.sizes && item.sizes.length > 0 ? (
-                      <div className="flex flex-wrap gap-5 py-1 items-center w-full overflow-visible">
-                        {item.sizes.map((sz, idx) => {
-                          const isSelected = getCardSizeIndex(item.id) === idx;
-                          const sizeLabel = sz.size.split(' ')[0].toUpperCase();
-                          const isOutOfStock = item.tags && item.tags.includes('out-of-stock');
-                          
-                          if (isOutOfStock) {
+                  {/* Info block */}
+                  <div className="pt-4 flex flex-col flex-1">
+                    {/* Brand / Category Badge */}
+                    <span className="text-[0.6rem] tracking-[0.15em] uppercase font-bold text-left block mb-1" style={{ color: '#8B672F' }}>
+                      {item.category === 'sets' ? 'CURATED SET' : (item.brand || 'FRAGRANCE')}
+                    </span>
+
+                    {/* Product Title */}
+                    <h3 className="font-heading text-[0.95rem] font-normal mb-1 tracking-wide leading-tight group-hover:text-policy-gold transition-colors duration-300 line-clamp-1 text-left" style={{ color: '#3A3632' }}>
+                      {item.name}
+                    </h3>
+
+                    {/* Scent Profile notes */}
+                    {item.notes && item.notes.length > 0 && (
+                      <div className="text-[0.7rem] text-left font-light tracking-wide mb-1.5 font-body" style={{ color: '#5A5550' }}>
+                        {item.notes.slice(0, 2).join(' • ')}
+                      </div>
+                    )}
+
+                    {/* Selected size price */}
+                    <div className="text-xs font-semibold mb-3 text-left" style={{ color: '#2C2926' }}>
+                      ₹{(() => {
+                        const priceVal = item.sizes && item.sizes[cardSizeIdx] ? item.sizes[cardSizeIdx].price : item.price;
+                        return priceVal.toLocaleString('en-IN');
+                      })()}
+                    </div>
+
+                    {/* Size selectors */}
+                    <div className="min-h-[36px] mb-4 flex items-center justify-start overflow-visible">
+                      {item.sizes && item.sizes.length > 0 ? (
+                        <div className="flex flex-wrap gap-5 py-1 items-center w-full overflow-visible">
+                          {item.sizes.map((sz, idx) => {
+                            const isSelected = cardSizeIdx === idx;
+                            const sizeLabel = sz.size.split(' ')[0].toUpperCase();
+                            const isOutOfStock = item.tags && item.tags.includes('out-of-stock');
+                            
+                            if (isOutOfStock) {
+                              return (
+                                <button
+                                  key={idx}
+                                  disabled
+                                  className="relative py-1 text-[0.68rem] tracking-widest font-normal text-black/30 select-none cursor-not-allowed uppercase transition-colors duration-300 focus:outline-none"
+                                  style={{ textDecoration: 'line-through' }}
+                                >
+                                  {sizeLabel}
+                                </button>
+                              );
+                            }
+                            
                             return (
                               <button
                                 key={idx}
-                                disabled
-                                className="relative py-1 text-[0.68rem] tracking-widest font-normal text-black/30 select-none cursor-not-allowed uppercase transition-colors duration-300 focus:outline-none"
-                                style={{ textDecoration: 'line-through' }}
+                                onClick={(e) => handleSelectCardSize(item.id, idx, e)}
+                                disabled={isUpdatingCart || itemMutating}
+                                className="relative py-1 text-[0.68rem] tracking-widest uppercase cursor-pointer select-none focus:outline-none transition-colors duration-300 min-h-[32px] flex items-center justify-center focus-visible:ring-1 focus-visible:ring-black/10 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {sizeLabel}
+                                <span className="transition-colors duration-300 hover:text-policy-primary" style={{
+                                  color: isSelected ? '#2C2926' : '#5A5550',
+                                  fontWeight: isSelected ? 500 : 400
+                                }}>
+                                  {sizeLabel}
+                                </span>
+                                {isSelected && (
+                                  <motion.div
+                                    layoutId={`activeCardSizeUnderline-${item.id}`}
+                                    className="absolute bottom-0 left-0 right-0 h-[1.5px]"
+                                    style={{ backgroundColor: '#8B672F' }}
+                                    transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                                  />
+                                )}
                               </button>
                             );
-                          }
-                          
-                          return (
-                            <button
-                              key={idx}
-                              onClick={(e) => handleSelectCardSize(item.id, idx, e)}
-                              className="relative py-1 text-[0.68rem] tracking-widest uppercase cursor-pointer select-none focus:outline-none transition-colors duration-300 min-h-[32px] flex items-center justify-center focus-visible:ring-1 focus-visible:ring-black/10 focus-visible:outline-none"
-                            >
-                              <span className="transition-colors duration-300 hover:text-policy-primary" style={{
-                                color: isSelected ? '#2C2926' : '#5A5550',
-                                fontWeight: isSelected ? 500 : 400
-                              }}>
-                                {sizeLabel}
-                              </span>
-                              {isSelected && (
-                                <motion.div
-                                  layoutId={`activeCardSizeUnderline-${item.id}`}
-                                  className="absolute bottom-0 left-0 right-0 h-[1.5px]"
-                                  style={{ backgroundColor: '#8B672F' }}
-                                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-                                />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="h-0" />
-                    )}
-                  </div>
+                          })}
+                        </div>
+                      ) : (
+                        <div className="h-0" />
+                      )}
+                    </div>
 
-                  {/* Add to Cart / Sold Out / Quantity Adjuster Button */}
-                  {(() => {
-                    const isOutOfStock = item.tags && item.tags.includes('out-of-stock');
-                    const isAdding = addingItemId === item.id;
-                    const sizeIdx = getCardSizeIndex(item.id);
-                    const selectedOption = item.sizes && item.sizes[sizeIdx] ? item.sizes[sizeIdx] : { size: 'Default' };
-                    
-                    if (isOutOfStock) {
+                    {/* Add to Cart / Sold Out / Quantity Adjuster Button */}
+                    {(() => {
+                      const isOutOfStock = item.tags && item.tags.includes('out-of-stock');
+                      const isAdding = addingItemId === item.id;
+                      
+                      if (isOutOfStock) {
+                        return (
+                          <button
+                            disabled
+                            className="w-full py-2.5 rounded-none border text-[0.65rem] font-bold tracking-widest uppercase text-center cursor-not-allowed mt-auto min-h-[44px]"
+                            style={{
+                              borderColor: 'rgba(216,209,199,0.6)',
+                              backgroundColor: 'rgba(239,232,221,0.3)',
+                              color: 'rgba(116,111,105,0.6)',
+                            }}
+                          >
+                            SOLD OUT
+                          </button>
+                        );
+                      }
+
+                      // Check if item is already in the cart with this size
+                      const cartItem = cartItems.find(ci => ci.id === item.id && ci.size === cardOption.size);
+                      if (cartItem) {
+                        return (
+                          <div className="flex items-center justify-between gap-2 mt-auto w-full min-h-[44px]">
+                            <button
+                              onClick={(e) => handleUpdateQuantity(item, cardOption, cartItem.quantity - 1, cartItem.quantity, e)}
+                              className="w-10 h-10 rounded-none border flex items-center justify-center text-sm transition-all duration-300 bg-transparent cursor-pointer font-bold"
+                              style={{
+                                borderColor: '#D8D1C7',
+                                color: '#2C2926',
+                              }}
+                              aria-label="Decrease quantity"
+                            >
+                              -
+                            </button>
+                            <span className="font-semibold text-[0.65rem] tracking-wider uppercase text-center flex-1" style={{ color: '#2C2926' }}>
+                              {cartItem.quantity} IN BAG
+                            </span>
+                            <button
+                              onClick={(e) => handleUpdateQuantity(item, cardOption, cartItem.quantity + 1, cartItem.quantity, e)}
+                              className="w-10 h-10 rounded-none border flex items-center justify-center text-sm transition-all duration-300 bg-transparent cursor-pointer font-bold"
+                              style={{
+                                borderColor: '#D8D1C7',
+                                color: '#2C2926',
+                              }}
+                              aria-label="Increase quantity"
+                            >
+                              +
+                            </button>
+                          </div>
+                        );
+                      }
+                      
                       return (
                         <button
-                          disabled
-                          className="w-full py-2.5 rounded-none border text-[0.65rem] font-bold tracking-widest uppercase text-center cursor-not-allowed mt-auto min-h-[44px]"
+                          onClick={(e) => handleCardAddToCart(item, cardOption, e)}
+                          disabled={isAdding || isUpdatingCart || itemMutating}
+                          className="w-full py-2.5 rounded-none border text-[0.65rem] font-bold tracking-widest uppercase transition-all duration-300 mt-auto cursor-pointer min-h-[44px] disabled:opacity-50"
                           style={{
-                            borderColor: 'rgba(216,209,199,0.6)',
-                            backgroundColor: 'rgba(239,232,221,0.3)',
-                            color: 'rgba(116,111,105,0.6)',
+                            backgroundColor: (isAdding || isUpdatingCart || itemMutating) ? '#2C2926' : 'transparent',
+                            borderColor: '#2C2926',
+                            color: (isAdding || isUpdatingCart || itemMutating) ? '#FFFFFF' : '#2C2926',
                           }}
                         >
-                          SOLD OUT
+                          {isAdding || itemMutating ? (
+                            <span className="flex items-center justify-center gap-1.5">
+                              <i className="fas fa-spinner animate-spin"></i>
+                              ADDING...
+                            </span>
+                          ) : (
+                            'ADD TO CART'
+                          )}
                         </button>
                       );
-                    }
-
-                    // Check if item is already in the cart with this size
-                    const cartItem = cartItems.find(ci => ci.id === item.id && ci.size === selectedOption.size);
-                    if (cartItem) {
-                      return (
-                        <div className="flex items-center justify-between gap-2 mt-auto w-full min-h-[44px]">
-                          <button
-                            onClick={(e) => handleUpdateQuantity(item, selectedOption, cartItem.quantity - 1, e)}
-                            className="w-10 h-10 rounded-none border flex items-center justify-center text-sm transition-all duration-300 bg-transparent cursor-pointer font-bold"
-                            style={{
-                              borderColor: '#D8D1C7',
-                              color: '#2C2926',
-                            }}
-                            aria-label="Decrease quantity"
-                          >
-                            -
-                          </button>
-                          <span className="font-semibold text-[0.65rem] tracking-wider uppercase text-center flex-1" style={{ color: '#2C2926' }}>
-                            {cartItem.quantity} IN BAG
-                          </span>
-                          <button
-                            onClick={(e) => handleUpdateQuantity(item, selectedOption, cartItem.quantity + 1, e)}
-                            className="w-10 h-10 rounded-none border flex items-center justify-center text-sm transition-all duration-300 bg-transparent cursor-pointer font-bold"
-                            style={{
-                              borderColor: '#D8D1C7',
-                              color: '#2C2926',
-                            }}
-                            aria-label="Increase quantity"
-                          >
-                            +
-                          </button>
-                        </div>
-                      );
-                    }
-                    
-                    return (
-                      <button
-                        onClick={(e) => handleCardAddToCart(item, selectedOption, e)}
-                        disabled={isAdding}
-                        className="w-full py-2.5 rounded-none border text-[0.65rem] font-bold tracking-widest uppercase transition-all duration-300 mt-auto cursor-pointer min-h-[44px]"
-                        style={{
-                          backgroundColor: isAdding ? '#2C2926' : 'transparent',
-                          borderColor: '#2C2926',
-                          color: isAdding ? '#FFFFFF' : '#2C2926',
-                        }}
-                      >
-                        {isAdding ? (
-                          <span className="flex items-center justify-center gap-1.5">
-                            <i className="fas fa-spinner animate-spin"></i>
-                            ADDING...
-                          </span>
-                        ) : (
-                          'ADD TO CART'
-                        )}
-                      </button>
-                    );
-                  })()}
+                    })()}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : currentCategory === 'wishlist' ? (
           <div className="text-center py-24 bg-[#FEFCF9] border rounded-none p-10 shadow-sm max-w-xl mx-auto" style={{ borderColor: '#D8D1C7' }}>
@@ -956,7 +998,8 @@ export default function SignatureCollection({
                             <button
                               key={idx}
                               onClick={() => setSelectedSizeIndex(idx)}
-                              className="p-3.5 rounded-none border text-left cursor-pointer transition-all duration-300 min-h-[44px]"
+                              disabled={isUpdatingCart || drawerItemMutating}
+                              className="p-3.5 rounded-none border text-left cursor-pointer transition-all duration-300 min-h-[44px] disabled:opacity-50"
                               style={{
                                 backgroundColor: selectedSizeIndex === idx ? '#2C2926' : '#FEFCF9',
                                 borderColor: selectedSizeIndex === idx ? '#2C2926' : '#D8D1C7',
@@ -998,22 +1041,46 @@ export default function SignatureCollection({
                 <div className="flex gap-3 flex-1 max-w-xs justify-end">
                   <button
                     onClick={async () => {
+                      if (addingItemId || isUpdatingCart || drawerItemMutating) return;
                       const sizeOption = selectedItem.sizes[selectedSizeIndex];
-                      const token = isSignedIn ? await getToken() : null;
-                      await addToCart(selectedItem, sizeOption, 1, token);
-                      closeQuickView();
+                      if (!sizeOption) return;
+                      setAddingItemId(selectedItem.id);
+                      setIsUpdatingCart(true);
+                      try {
+                        const token = isSignedIn ? await getToken() : null;
+                        const result = await addToCart(selectedItem, sizeOption, 1, token);
+                        if (result && result.success) {
+                          closeQuickView();
+                          window.location.hash = 'cart';
+                        }
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        setAddingItemId(null);
+                        setIsUpdatingCart(false);
+                      }
                     }}
+                    disabled={addingItemId === selectedItem.id || isUpdatingCart || drawerItemMutating || !selectedItem.sizes[selectedSizeIndex] || selectedItem.sizes[selectedSizeIndex].stock <= 0}
                     className="
                       flex-1 px-6 py-4 rounded-none text-white min-h-[44px]
-                      hover:bg-[#8B672F] border flex items-center justify-center gap-2 cursor-pointer
+                      hover:bg-[#8B672F] border flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
                     "
                     style={{
                       backgroundColor: '#2C2926',
                       borderColor: '#2C2926',
                     }}
                   >
-                    <BottleIcon className="w-4.5 h-4.5" />
-                    <span>Purchase Scent</span>
+                    {addingItemId === selectedItem.id || isUpdatingCart || drawerItemMutating ? (
+                      <>
+                        <i className="fas fa-spinner animate-spin"></i>
+                        <span>ADDING...</span>
+                      </>
+                    ) : (
+                      <>
+                        <BottleIcon className="w-4.5 h-4.5" />
+                        <span>Purchase Scent</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

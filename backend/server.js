@@ -2333,7 +2333,11 @@ app.post('/api/cart', requireAuth, async (req, res) => {
 
     const newQuantity = existing ? (existing.quantity + qty) : qty;
     if (variant.stock < newQuantity) {
-      return res.status(400).json({ error: `Insufficient stock. Only ${variant.stock} available.` });
+      return res.status(400).json({
+        error: 'INSUFFICIENT_STOCK',
+        message: `Insufficient stock. Only ${variant.stock} available.`,
+        stock: variant.stock
+      });
     }
 
     if (existing) {
@@ -2381,30 +2385,38 @@ app.patch('/api/cart/:id', requireAuth, async (req, res) => {
   try {
     const dbUser = await getOrCreateDbUser(req.auth.userId);
     
-    const cartItem = await prisma.cartItem.findFirst({
-      where: { id, userId: dbUser.id },
+    const cartItem = await prisma.cartItem.findUnique({
+      where: { id },
       include: { variant: true }
     });
     if (!cartItem) {
-      return res.status(404).json({ error: 'Cart item not found' });
+      return res.status(404).json({ error: 'ITEM_NOT_FOUND', message: 'Cart item not found.' });
+    }
+
+    if (cartItem.userId !== dbUser.id) {
+      return res.status(403).json({ error: 'UNAUTHORIZED', message: 'You do not own this cart item.' });
     }
 
     if (qty <= 0) {
       await prisma.cartItem.delete({
-        where: { id, userId: dbUser.id }
+        where: { id }
       });
       return res.status(200).json({ success: true, message: 'Item removed' });
     }
 
     if (!cartItem.variant) {
-      return res.status(404).json({ error: 'Variant not found for this cart item' });
+      return res.status(404).json({ error: 'VARIANT_NOT_FOUND', message: 'Variant not found for this cart item.' });
     }
     if (cartItem.variant.stock < qty) {
-      return res.status(400).json({ error: `Insufficient stock. Only ${cartItem.variant.stock} available.` });
+      return res.status(400).json({
+        error: 'INSUFFICIENT_STOCK',
+        message: `Insufficient stock. Only ${cartItem.variant.stock} available.`,
+        stock: cartItem.variant.stock
+      });
     }
 
     const updated = await prisma.cartItem.update({
-      where: { id, userId: dbUser.id },
+      where: { id },
       data: { quantity: qty },
       include: {
         variant: true
@@ -2425,8 +2437,20 @@ app.delete('/api/cart/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
     const dbUser = await getOrCreateDbUser(req.auth.userId);
+    
+    const cartItem = await prisma.cartItem.findUnique({
+      where: { id }
+    });
+    if (!cartItem) {
+      return res.status(404).json({ error: 'ITEM_NOT_FOUND', message: 'Cart item not found.' });
+    }
+
+    if (cartItem.userId !== dbUser.id) {
+      return res.status(403).json({ error: 'UNAUTHORIZED', message: 'You do not own this cart item.' });
+    }
+
     await prisma.cartItem.delete({
-      where: { id, userId: dbUser.id }
+      where: { id }
     });
     return res.status(200).json({ success: true, message: 'Item removed successfully' });
   } catch (err) {

@@ -15,7 +15,8 @@ export default function ProductPage({ product: initialProduct, products = [], on
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0);
   const [selectedBottle, setSelectedBottle] = useState('classic');
   const [isAdding, setIsAdding] = useState(false);
-  const [cartItems, setCartItems] = useState(getCart());
+  const [cartItems, setCartItems] = useState(() => getCart());
+  const [mutatingItems, setMutatingItems] = useState(new Set());
   const [detectedAspect, setDetectedAspect] = useState('aspect-[1/1]');
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isImageLoading, setIsImageLoading] = useState(true);
@@ -36,28 +37,17 @@ export default function ProductPage({ product: initialProduct, products = [], on
   const [reviewError, setReviewError] = useState('');
   const [reviewSuccess, setReviewSuccess] = useState(false);
 
-  // Wishlist state initialized from localStorage
-  const [wishlist, setWishlist] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('wishlist') || '[]');
-    } catch (e) {
-      return [];
-    }
-  });
+  // Wishlist state initialized from WishlistStore subscription
+  const [wishlist, setWishlist] = useState([]);
 
   const toggleWishlist = () => {
     if (!product || !product.id) return;
-    const exists = wishlist.includes(product.id);
-    let updated;
-    if (exists) {
-      updated = wishlist.filter(id => id !== product.id);
-      showToast('Removed from your wishlist', 'success');
-    } else {
-      updated = [...wishlist, product.id];
+    const added = WishlistStore.toggle(product.id);
+    if (added) {
       showToast('Added to your collection wishlist.', 'success');
+    } else {
+      showToast('Removed from your wishlist', 'success');
     }
-    setWishlist(updated);
-    localStorage.setItem('wishlist', JSON.stringify(updated));
   };
 
 
@@ -164,13 +154,22 @@ export default function ProductPage({ product: initialProduct, products = [], on
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [initialProduct]);
 
-  // Sync cart items dynamically
+  // Sync cart, mutating locks, and wishlist dynamically
   useEffect(() => {
-    const handleCartUpdate = () => {
-      setCartItems(getCart());
+    const unsubscribeCart = CartStore.subscribe((items) => {
+      setCartItems(items);
+    });
+    const unsubscribeMutating = CartStore.subscribeMutating((set) => {
+      setMutatingItems(set);
+    });
+    const unsubscribeWishlist = WishlistStore.subscribe((list) => {
+      setWishlist(list);
+    });
+    return () => {
+      unsubscribeCart();
+      unsubscribeMutating();
+      unsubscribeWishlist();
     };
-    window.addEventListener('cart-updated', handleCartUpdate);
-    return () => window.removeEventListener('cart-updated', handleCartUpdate);
   }, []);
 
   // Scroll to top when product changes
@@ -213,27 +212,36 @@ export default function ProductPage({ product: initialProduct, products = [], on
     });
   }, [cartItems, product, selectedOption]);
 
-  const quantity = useMemo(() => {
+  const cartQuantity = useMemo(() => {
     return existingCartItem ? existingCartItem.quantity : 0;
   }, [existingCartItem]);
 
-  const handleDecrease = async () => {
-    if (quantity === 0) return;
-    const token = isSignedIn ? await getToken() : null;
-    await updateQuantity(selectedOption.variantId || product.id, selectedOption.size, quantity - 1, token);
+  const isItemMutating = useMemo(() => {
+    if (!product || !selectedOption) return false;
+    const itemKey = selectedOption.variantId || (product.id + (selectedOption.size ? '_' + selectedOption.size : ''));
+    return mutatingItems.has(itemKey);
+  }, [product, selectedOption, mutatingItems]);
+
+  const [selectedQty, setSelectedQty] = useState(1);
+
+  useEffect(() => {
+    if (cartQuantity > 0) {
+      setSelectedQty(cartQuantity);
+    } else {
+      setSelectedQty(1);
+    }
+  }, [cartQuantity, product, selectedSizeIndex]);
+
+  const handleDecrease = () => {
+    setSelectedQty(prev => Math.max(0, prev - 1));
   };
 
-  const handleIncrease = async () => {
-    if (selectedOption && quantity >= selectedOption.stock) {
+  const handleIncrease = () => {
+    if (selectedOption && selectedQty >= selectedOption.stock) {
       showToast("Cannot exceed available stock.", "warning");
       return;
     }
-    const token = isSignedIn ? await getToken() : null;
-    if (quantity === 0) {
-      await addToCart(product, selectedOption, 1, token);
-    } else {
-      await updateQuantity(selectedOption.variantId || product.id, selectedOption.size, quantity + 1, token);
-    }
+    setSelectedQty(prev => prev + 1);
   };
 
   const galleryImages = useMemo(() => {
@@ -425,16 +433,39 @@ export default function ProductPage({ product: initialProduct, products = [], on
 
   // Handle Add to Cart
   const handleAddToCart = async () => {
-    setIsAdding(true);
-    const token = isSignedIn ? await getToken() : null;
-    if (quantity === 0) {
-      await addToCart(product, selectedOption, 1, token);
-    } else {
-      await updateQuantity(selectedOption.variantId || product.id, selectedOption.size, quantity + 1, token);
+    if (selectedQty <= 0) {
+      showToast('Please select at least one item.', 'error');
+      return;
     }
-    setTimeout(() => {
+
+    if (selectedOption && selectedQty > selectedOption.stock) {
+      showToast(`Cannot exceed available stock. Only ${selectedOption.stock} available.`, "warning");
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      const token = isSignedIn ? await getToken() : null;
+      let result;
+      
+      // If quantity matches existing, no need to update
+      if (existingCartItem && existingCartItem.quantity === selectedQty) {
+        result = { success: true, reason: 'NO_OP' };
+      } else if (existingCartItem) {
+        result = await updateQuantity(selectedOption.variantId || product.id, selectedOption.size, selectedQty, token);
+      } else {
+        result = await addToCart(product, selectedOption, selectedQty, token);
+      }
+
+      if (result && (result.success || result.reason === 'NO_OP')) {
+        // Deterministic flow: Add/Update -> Success -> Navigate to cart exactly once
+        window.location.hash = 'cart';
+      }
+    } catch (err) {
+      console.error('Failed to add to cart:', err);
+    } finally {
       setIsAdding(false);
-    }, 500);
+    }
   };
 
   // Pricing calculations
@@ -923,7 +954,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
                       <button
                         key={idx}
                         onClick={() => !isOutOfStock && setSelectedSizeIndex(idx)}
-                        disabled={isOutOfStock}
+                        disabled={isOutOfStock || isAdding || isItemMutating}
                         aria-label={`Size ${sizeLabel}${isOutOfStock ? ' — sold out' : ''}`}
                         aria-pressed={isSelected}
                         className={`pdp-size-btn${isSelected ? ' pdp-size-btn--active' : ''}`}
@@ -955,17 +986,18 @@ export default function ProductPage({ product: initialProduct, products = [], on
                     <div className="pdp-qty-stepper" role="group" aria-label="Quantity selector">
                       <button
                         onClick={handleDecrease}
-                        disabled={quantity === 0}
+                        disabled={selectedQty <= 0 || isAdding}
                         className="pdp-qty-btn"
                         aria-label="Decrease quantity"
                       >
                         <i className="fas fa-minus" style={{ fontSize: '0.7rem', pointerEvents: 'none' }} aria-hidden="true" />
                       </button>
-                      <span className="pdp-qty-value" aria-live="polite" aria-label={`Quantity: ${quantity}`}>
-                        {quantity}
+                      <span className="pdp-qty-value" aria-live="polite" aria-label={`Quantity: ${selectedQty}`}>
+                        {selectedQty}
                       </span>
                       <button
                         onClick={handleIncrease}
+                        disabled={isAdding}
                         className="pdp-qty-btn"
                         aria-label="Increase quantity"
                       >
@@ -976,7 +1008,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
                     <span className="pdp-sold-out-label" role="status">Sold Out</span>
                   )}
                 </div>
-
+ 
                 <div className="pdp-avail-group">
                   <span className="pdp-avail-label">Availability</span>
                   <span
@@ -987,7 +1019,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
                   </span>
                 </div>
               </div>
-
+ 
               {/* ── Add to Bag CTA ── */}
               <button
                 onClick={handleAddToCart}
@@ -996,7 +1028,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
                 aria-busy={isAdding}
                 className="pdp-add-to-bag"
               >
-                {isAdding ? (
+                {isAdding || isItemMutating ? (
                   <>
                     <i className="fas fa-spinner fa-spin" aria-hidden="true" style={{ fontSize: '0.85rem' }} />
                     <span>Adding to Bag…</span>
