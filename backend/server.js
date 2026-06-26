@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
+import clerk, { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
 import { Webhook } from 'svix';
 import { prisma, verifyDatabaseSchema } from './lib/prisma.js';
 import crypto from 'crypto';
@@ -164,23 +164,11 @@ app.post('/api/webhooks/clerk', express.raw({ type: 'application/json' }), async
   console.log(`Received Clerk webhook event: ${eventType}`);
 
   if (eventType === 'user.created' || eventType === 'user.updated') {
-    const { id, email_addresses, first_name, last_name, phone_numbers } = evt.data;
-    const email = email_addresses[0]?.email_address;
-    const name = `${first_name || ''} ${last_name || ''}`.trim() || null;
-    const phone = phone_numbers?.[0]?.phone_number || null;
+    const { id } = evt.data;
+    const { email, name, phone } = extractClerkProfile(evt.data);
 
     try {
-      await prisma.user.upsert({
-        where: { clerkId: id },
-        update: { email, name, phone },
-        create: {
-          clerkId: id,
-          email,
-          name,
-          phone,
-          role: 'USER',
-        },
-      });
+      await syncDbUserFromClerkProfile(id, { email, name, phone });
       console.log(`User synced to database: ${id} (${eventType})`);
     } catch (err) {
       console.error('Error saving user to DB:', err);
@@ -303,21 +291,97 @@ app.use('/api/cart', async (req, res, next) => {
 
 // Helper: Get or create DB User from Clerk Auth ID (robust fallback if webhook is pending)
 async function getOrCreateDbUser(clerkId) {
-  let user = await prisma.user.findUnique({
+  const clerkProfile = await fetchClerkProfile(clerkId);
+  return syncDbUserFromClerkProfile(clerkId, clerkProfile);
+}
+
+function getPrimaryEmail(user) {
+  if (!user) return null;
+  if (user.primaryEmailAddress?.emailAddress) return user.primaryEmailAddress.emailAddress;
+  const primaryEmailId = user.primaryEmailAddressId;
+  const primaryEmail = user.emailAddresses?.find(email => email.id === primaryEmailId);
+  return primaryEmail?.emailAddress || user.email_addresses?.[0]?.email_address || user.emailAddresses?.[0]?.emailAddress || null;
+}
+
+function getPrimaryPhone(user) {
+  if (!user) return null;
+  if (user.primaryPhoneNumber?.phoneNumber) return user.primaryPhoneNumber.phoneNumber;
+  const primaryPhoneId = user.primaryPhoneNumberId;
+  const primaryPhone = user.phoneNumbers?.find(phone => phone.id === primaryPhoneId);
+  return primaryPhone?.phoneNumber || user.phone_numbers?.[0]?.phone_number || user.phoneNumbers?.[0]?.phoneNumber || null;
+}
+
+function extractClerkProfile(user) {
+  const firstName = user?.firstName || user?.first_name || '';
+  const lastName = user?.lastName || user?.last_name || '';
+  const name = (user?.fullName || user?.full_name || `${firstName} ${lastName}`).trim() || null;
+  return {
+    email: getPrimaryEmail(user),
+    name,
+    phone: getPrimaryPhone(user)
+  };
+}
+
+async function fetchClerkProfile(clerkId) {
+  try {
+    const clerkUser = await clerk.users.getUser(clerkId);
+    return extractClerkProfile(clerkUser);
+  } catch (err) {
+    console.warn(`Unable to fetch Clerk profile for ${clerkId}:`, err.message);
+    return { email: null, name: null, phone: null };
+  }
+}
+
+function buildUserProfileUpdate(profile) {
+  const update = {};
+  if (profile.email) update.email = profile.email;
+  if (profile.name) update.name = profile.name;
+  if (profile.phone) update.phone = profile.phone;
+  return update;
+}
+
+async function syncDbUserFromClerkProfile(clerkId, profile) {
+  const updateData = buildUserProfileUpdate(profile);
+  const existingUser = await prisma.user.findUnique({
     where: { clerkId }
   });
 
-  if (!user) {
-    // Basic fallback user creation
-    user = await prisma.user.create({
-      data: {
-        clerkId: clerkId,
-        email: `${clerkId}@clerk.local`, // Fallback email
-        role: 'USER'
-      }
+  if (existingUser) {
+    if (Object.keys(updateData).length === 0) {
+      return existingUser;
+    }
+    return prisma.user.update({
+      where: { clerkId },
+      data: updateData
     });
   }
-  return user;
+
+  return prisma.user.create({
+    data: {
+      clerkId,
+      email: profile.email || `${clerkId}@clerk.local`,
+      name: profile.name,
+      phone: profile.phone,
+      role: 'USER'
+    }
+  });
+}
+
+function normalizeRequiredString(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeAddressPayload(body) {
+  return {
+    fullName: normalizeRequiredString(body.fullName),
+    phone: normalizeRequiredString(body.phone),
+    addressLine1: normalizeRequiredString(body.addressLine1),
+    addressLine2: normalizeRequiredString(body.addressLine2),
+    city: normalizeRequiredString(body.city),
+    state: normalizeRequiredString(body.state),
+    postalCode: normalizeRequiredString(body.postalCode),
+    isDefault: !!body.isDefault
+  };
 }
 
 function formatOrder(order) {
@@ -372,7 +436,8 @@ app.get('/api/user/addresses', requireAuth, getAddressesHandler);
 
 // POST save address
 const postAddressHandler = async (req, res) => {
-  const { fullName, phone, addressLine1, addressLine2, city, state, postalCode, isDefault } = req.body;
+  const addressData = normalizeAddressPayload(req.body);
+  const { fullName, phone, addressLine1, city, state, postalCode } = addressData;
 
   if (!fullName || !phone || !addressLine1 || !city || !state || !postalCode) {
     return res.status(400).json({ error: 'Missing required address fields' });
@@ -382,7 +447,7 @@ const postAddressHandler = async (req, res) => {
     const dbUser = await getOrCreateDbUser(req.auth.userId);
 
     // If setting as default, clear previous default flag for this user
-    if (isDefault) {
+    if (addressData.isDefault) {
       await prisma.address.updateMany({
         where: { userId: dbUser.id, isDefault: true },
         data: { isDefault: false }
@@ -392,14 +457,14 @@ const postAddressHandler = async (req, res) => {
     const newAddress = await prisma.address.create({
       data: {
         userId: dbUser.id,
-        fullName,
-        phone,
-        addressLine1,
-        addressLine2,
-        city,
-        state,
-        postalCode,
-        isDefault: !!isDefault
+        fullName: addressData.fullName,
+        phone: addressData.phone,
+        addressLine1: addressData.addressLine1,
+        addressLine2: addressData.addressLine2 || null,
+        city: addressData.city,
+        state: addressData.state,
+        postalCode: addressData.postalCode,
+        isDefault: addressData.isDefault
       }
     });
 
@@ -415,7 +480,8 @@ app.post('/api/user/addresses', requireAuth, postAddressHandler);
 // PUT/PATCH update address
 const patchAddressHandler = async (req, res) => {
   const { id } = req.params;
-  const { fullName, phone, addressLine1, addressLine2, city, state, postalCode, isDefault } = req.body;
+  const addressData = normalizeAddressPayload(req.body);
+  const { fullName, phone, addressLine1, city, state, postalCode } = addressData;
 
   if (!fullName || !phone || !addressLine1 || !city || !state || !postalCode) {
     return res.status(400).json({ error: 'Missing required address fields' });
@@ -433,7 +499,7 @@ const patchAddressHandler = async (req, res) => {
     }
 
     // If setting as default, clear previous default flag for this user
-    if (isDefault) {
+    if (addressData.isDefault) {
       await prisma.address.updateMany({
         where: { userId: dbUser.id, isDefault: true },
         data: { isDefault: false }
@@ -443,14 +509,14 @@ const patchAddressHandler = async (req, res) => {
     const updatedAddress = await prisma.address.update({
       where: { id },
       data: {
-        fullName,
-        phone,
-        addressLine1,
-        addressLine2,
-        city,
-        state,
-        postalCode,
-        isDefault: !!isDefault
+        fullName: addressData.fullName,
+        phone: addressData.phone,
+        addressLine1: addressData.addressLine1,
+        addressLine2: addressData.addressLine2 || null,
+        city: addressData.city,
+        state: addressData.state,
+        postalCode: addressData.postalCode,
+        isDefault: addressData.isDefault
       }
     });
 
@@ -1658,9 +1724,14 @@ app.patch('/api/user/profile', requireAuth, async (req, res) => {
   const { name, phone } = req.body;
   try {
     const dbUser = await getOrCreateDbUser(req.auth.userId);
+    const updateData = {
+      name: normalizeRequiredString(name) || dbUser.name,
+      phone: normalizeRequiredString(phone) || dbUser.phone
+    };
+
     const updatedUser = await prisma.user.update({
       where: { id: dbUser.id },
-      data: { name, phone },
+      data: updateData,
       select: {
         id: true,
         name: true,
@@ -1775,7 +1846,7 @@ app.get('/api/admin/orders', requireAuth, requireAdmin, async (req, res) => {
       orderBy: { createdAt: 'desc' },
       include: {
         user: {
-          select: { name: true, email: true }
+          select: { name: true, email: true, phone: true }
         },
         address: true,
         orderItems: true
@@ -1804,7 +1875,7 @@ app.patch('/api/admin/orders/:id', requireAuth, requireAdmin, async (req, res) =
       where: { id },
       data: { status },
       include: {
-        user: { select: { name: true, email: true } },
+        user: { select: { name: true, email: true, phone: true } },
         address: true,
         orderItems: true
       }
@@ -1825,7 +1896,7 @@ app.get('/api/admin/payments', requireAuth, requireAdmin, async (req, res) => {
       include: {
         order: {
           include: {
-            user: { select: { name: true, email: true } }
+            user: { select: { name: true, email: true, phone: true } }
           }
         }
       }
@@ -1836,6 +1907,7 @@ app.get('/api/admin/payments', requireAuth, requireAdmin, async (req, res) => {
       orderId: p.orderId,
       customerName: p.order?.user?.name || 'Collector',
       customerEmail: p.order?.user?.email || 'N/A',
+      customerPhone: p.order?.user?.phone || 'N/A',
       provider: p.provider,
       transactionId: p.transactionId || (p.provider === 'COD' ? 'COD_Fulfill' : 'N/A'),
       amount: parseFloat(p.amount),

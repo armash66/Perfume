@@ -587,6 +587,11 @@
   justify-content: center;
 }
 
+.checkout-step-actions .checkout-primary-btn,
+.checkout-step-actions .checkout-primary-btn * {
+  color: #FEFCF9 !important;
+}
+
 .checkout-step-actions .checkout-primary-btn:hover {
   background-color: #B08A50;
 }

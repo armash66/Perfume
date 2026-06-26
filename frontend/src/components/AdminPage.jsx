@@ -824,7 +824,8 @@ export default function AdminPage() {
   const filteredOrdersData = useMemo(() => {
     const list = orders.filter(o => {
       const clientName = o.user?.name || 'Collector';
-      const matchesSearch = o.id?.toLowerCase().includes(orderSearch.toLowerCase()) || clientName.toLowerCase().includes(orderSearch.toLowerCase()) || o.user?.email?.toLowerCase().includes(orderSearch.toLowerCase());
+      const clientPhone = o.user?.phone || '';
+      const matchesSearch = o.id?.toLowerCase().includes(orderSearch.toLowerCase()) || clientName.toLowerCase().includes(orderSearch.toLowerCase()) || o.user?.email?.toLowerCase().includes(orderSearch.toLowerCase()) || clientPhone.toLowerCase().includes(orderSearch.toLowerCase());
       const matchesStatus = orderFilter === 'ALL' || o.status === orderFilter;
       return matchesSearch && matchesStatus;
     });
@@ -847,6 +848,8 @@ export default function AdminPage() {
       const matchesSearch = (p.id || '').toLowerCase().includes(paymentSearch.toLowerCase()) || 
                             (p.orderId || '').toLowerCase().includes(paymentSearch.toLowerCase()) || 
                             (p.customerName || '').toLowerCase().includes(paymentSearch.toLowerCase()) || 
+                            (p.customerEmail || '').toLowerCase().includes(paymentSearch.toLowerCase()) ||
+                            (p.customerPhone || '').toLowerCase().includes(paymentSearch.toLowerCase()) ||
                             (p.transactionId || '').toLowerCase().includes(paymentSearch.toLowerCase());
       let matchesFilter = true;
       if (paymentFilter === 'FAILED') matchesFilter = p.status === 'FAILED';
@@ -1086,17 +1089,17 @@ export default function AdminPage() {
   };
 
   const exportOrdersCsv = () => {
-    let csv = 'Order ID,Date,Customer Name,Customer Email,Items Count,Total,Payment Method,Status\n';
+    let csv = 'Order ID,Date,Customer Name,Customer Email,Customer Phone,Items Count,Total,Payment Method,Status\n';
     filteredOrdersData.forEach(o => {
-      csv += `"${o.id}","${new Date(o.createdAt).toLocaleString('en-IN')}","${o.user?.name || 'Collector'}","${o.user?.email || 'N/A'}",${o.orderItems?.length || 1},${o.total},"${o.paymentMethod}","${o.status}"\n`;
+      csv += `"${o.id}","${new Date(o.createdAt).toLocaleString('en-IN')}","${o.user?.name || 'Collector'}","${o.user?.email || 'N/A'}","${o.user?.phone || o.address?.phone || 'N/A'}",${o.orderItems?.length || 1},${o.total},"${o.paymentMethod}","${o.status}"\n`;
     });
     downloadCsv(csv, 'decant_atelier_orders_ledger.csv');
   };
 
   const exportPaymentsCsv = () => {
-    let csv = 'Ledger ID,Order ID,Customer,Method,Transaction ID,Amount,Status,Date\n';
+    let csv = 'Ledger ID,Order ID,Customer Name,Customer Email,Customer Phone,Method,Transaction ID,Amount,Status,Date\n';
     paymentsData.forEach(p => {
-      csv += `"${p.id}","${p.orderId}","${p.customerName}","${p.provider}","${p.transactionId}",${p.amount},"${p.status}","${new Date(p.paidDate).toLocaleString('en-IN')}"\n`;
+      csv += `"${p.id}","${p.orderId}","${p.customerName}","${p.customerEmail || 'N/A'}","${p.customerPhone || 'N/A'}","${p.provider}","${p.transactionId}",${p.amount},"${p.status}","${new Date(p.paidDate).toLocaleString('en-IN')}"\n`;
     });
     downloadCsv(csv, 'decant_atelier_payments_settlement.csv');
   };
@@ -2102,6 +2105,7 @@ export default function AdminPage() {
                   {filteredOrdersData.map(o => {
                     const clientName = o.user?.name || 'Collector';
                     const clientEmail = o.user?.email || 'N/A';
+                    const clientPhone = o.user?.phone || o.address?.phone || 'N/A';
                     const orderDate = new Date(o.createdAt).toLocaleDateString('en-IN');
                     return (
                       <tr key={o.id}>
@@ -2111,7 +2115,8 @@ export default function AdminPage() {
                         <td>{orderDate}</td>
                         <td>
                           <div style={{ fontWeight: 600 }}>{clientName}</div>
-                          <div style={{ fontSize: '0.7rem', color: '#9ca3af', fontFamily: 'monospace' }}>{clientEmail}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{clientEmail}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{clientPhone}</div>
                         </td>
                         <td>{o.orderItems?.length || 1} items</td>
                         <td style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>₹{parseFloat(o.total).toLocaleString('en-IN')}</td>
@@ -2200,7 +2205,11 @@ export default function AdminPage() {
                     <tr key={p.id}>
                       <td style={{ fontFamily: 'monospace' }}>{p.id}</td>
                       <td style={{ fontFamily: 'monospace' }}>#{p.orderId.slice(-8).toUpperCase()}</td>
-                      <td style={{ fontWeight: 'bold' }}>{p.customerName}</td>
+                      <td>
+                        <div style={{ fontWeight: 'bold' }}>{p.customerName}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{p.customerEmail || 'N/A'}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{p.customerPhone || 'N/A'}</div>
+                      </td>
                       <td>{p.provider}</td>
                       <td style={{ fontFamily: 'monospace' }}>{p.transactionId}</td>
                       <td style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>₹{parseFloat(p.amount).toLocaleString('en-IN')}</td>
@@ -2528,7 +2537,9 @@ export default function AdminPage() {
                         <tr>
                           <th>Collector Name</th>
                           <th>Email Address</th>
+                          <th>Phone</th>
                           <th>Current Role</th>
+                          <th>Joined</th>
                           <th>Action</th>
                         </tr>
                       </thead>
@@ -2536,10 +2547,12 @@ export default function AdminPage() {
                         {users.filter(u => u.role !== 'ADMIN').map((u) => (
                           <tr key={u.id}>
                             <td style={{ fontWeight: 'bold' }}>{u.name || 'Collector'}</td>
-                            <td style={{ fontFamily: 'monospace' }}>{u.email}</td>
+                            <td>{u.email}</td>
+                            <td>{u.phone || 'N/A'}</td>
                             <td>
                               <span className="admin-badge standard">{u.role}</span>
                             </td>
+                            <td>{new Date(u.createdAt).toLocaleDateString('en-IN')}</td>
                             <td>
                               <button
                                 type="button"
@@ -2554,7 +2567,7 @@ export default function AdminPage() {
                         ))}
                         {users.filter(u => u.role !== 'ADMIN').length === 0 && (
                           <tr>
-                            <td colSpan="4" style={{ color: '#9ca3af', textAlign: 'center', padding: '1rem' }}>No other registered users available.</td>
+                            <td colSpan="6" style={{ color: '#9ca3af', textAlign: 'center', padding: '1rem' }}>No other registered users available.</td>
                           </tr>
                         )}
                       </tbody>

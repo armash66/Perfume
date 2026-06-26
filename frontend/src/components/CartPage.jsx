@@ -753,6 +753,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
             <button 
               onClick={() => { window.location.hash = 'profile'; }} 
               className="py-3 px-6 bg-[#1C1B18] text-[#FEFCF9] hover:bg-[#8B672F] text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300"
+              style={{ color: '#FEFCF9' }}
             >
               View Order Details
             </button>
@@ -1315,6 +1316,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
                               type="submit"
                               disabled={savingAddress}
                               className="py-2.5 px-6 bg-[#1C1B18] text-[#FEFCF9] hover:bg-[#8B672F] text-[0.65rem] font-bold tracking-widest uppercase transition-colors"
+                              style={{ color: '#FEFCF9' }}
                             >
                               {savingAddress ? 'Saving...' : 'Save and Select'}
                             </button>
