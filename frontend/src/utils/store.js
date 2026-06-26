@@ -7,6 +7,8 @@ import { API_BASE_URL } from './config.js';
 let cartListeners = [];
 let cartState = [];
 let confirmedCartState = [];
+let cartSessionVersion = 0;
+let isAuthenticatedCartSession = false;
 
 let wishlistListeners = [];
 let wishlistState = [];
@@ -16,6 +18,10 @@ let mutatingItems = new Set();
 export const CartStore = {
   getMutatingItems() {
     return mutatingItems;
+  },
+
+  setAuthenticated(isAuthenticated) {
+    isAuthenticatedCartSession = Boolean(isAuthenticated);
   },
 
   startMutation(itemKey) {
@@ -61,14 +67,36 @@ export const CartStore = {
   },
 
   save(newCart) {
+    if (!isAuthenticatedCartSession && newCart.some(item => item?.dbCartItemId)) {
+      return;
+    }
     cartState = newCart;
     try {
-      localStorage.setItem('cartItems', JSON.stringify(cartState));
+      if (cartState.length === 0) {
+        localStorage.removeItem('cartItems');
+      } else {
+        localStorage.setItem('cartItems', JSON.stringify(cartState));
+      }
     } catch (e) {
       console.error('Failed to save cart items:', e);
     }
     this.dispatch();
     // Dispatch standard window event for backward compatibility
+    window.dispatchEvent(new Event('cart-updated'));
+  },
+
+  clear() {
+    cartSessionVersion += 1;
+    cartState = [];
+    confirmedCartState = [];
+    mutatingItems = new Set();
+    try {
+      localStorage.removeItem('cartItems');
+    } catch (e) {
+      console.error('Failed to clear cart items:', e);
+    }
+    this.dispatch();
+    this.dispatchMutating();
     window.dispatchEvent(new Event('cart-updated'));
   },
 
@@ -78,8 +106,16 @@ export const CartStore = {
 
   rollback() {
     cartState = JSON.parse(JSON.stringify(confirmedCartState));
+    if (!isAuthenticatedCartSession && cartState.some(item => item?.dbCartItemId)) {
+      this.clear();
+      return;
+    }
     try {
-      localStorage.setItem('cartItems', JSON.stringify(cartState));
+      if (cartState.length === 0) {
+        localStorage.removeItem('cartItems');
+      } else {
+        localStorage.setItem('cartItems', JSON.stringify(cartState));
+      }
     } catch (e) {
       console.error('Failed to rollback cart items:', e);
     }
@@ -112,12 +148,19 @@ export const CartStore = {
 
   async sync(token) {
     if (!token) return false;
+    const syncVersion = cartSessionVersion;
     try {
       const res = await fetch(`${API_BASE_URL}/api/cart`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
+        if (syncVersion !== cartSessionVersion) {
+          return false;
+        }
         const dbCartItems = await res.json();
+        if (syncVersion !== cartSessionVersion) {
+          return false;
+        }
         const mappedCart = dbCartItems.map(item => {
           const prod = item.variant?.product || {};
           return {
@@ -134,6 +177,9 @@ export const CartStore = {
             label: ''
           };
         });
+        if (syncVersion !== cartSessionVersion) {
+          return false;
+        }
         this.save(mappedCart);
         this.commit();
         return true;
@@ -147,6 +193,7 @@ export const CartStore = {
 
   async merge(token) {
     if (!token) return;
+    const mergeVersion = cartSessionVersion;
     const localCart = [...cartState];
 
     // If guest cart is empty, simply sync the database cart down to local
@@ -164,6 +211,9 @@ export const CartStore = {
         throw new Error('Failed to fetch remote cart for comparison');
       }
       const dbCartItems = await res.json();
+      if (mergeVersion !== cartSessionVersion) {
+        return;
+      }
 
       const remoteCart = dbCartItems.map(item => ({
         variantId: item.variantId,
@@ -195,6 +245,9 @@ export const CartStore = {
             label: ''
           };
         });
+        if (mergeVersion !== cartSessionVersion) {
+          return;
+        }
         this.save(mappedCart);
         return;
       }
@@ -203,6 +256,9 @@ export const CartStore = {
       // Loop through local items and update or create them on the database
       let allUploaded = true;
       for (const localItem of localCart) {
+        if (mergeVersion !== cartSessionVersion) {
+          return;
+        }
         if (!localItem.variantId) continue;
         const remoteItem = remoteCart.find(r => r.variantId === localItem.variantId);
         
@@ -235,9 +291,15 @@ export const CartStore = {
           console.error(`Failed to upload merged cart item: ${localItem.variantId}`);
           break;
         }
+        if (mergeVersion !== cartSessionVersion) {
+          return;
+        }
       }
 
       if (allUploaded) {
+        if (mergeVersion !== cartSessionVersion) {
+          return;
+        }
         await this.sync(token);
         showToast('Shopping bag synchronized.', 'success');
       } else {

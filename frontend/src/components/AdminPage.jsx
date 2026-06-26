@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth, useUser, SignInButton, SignOutButton } from '@clerk/clerk-react';
 import { showToast } from '../utils/toast.js';
+import { clearCart } from '../utils/cartHelper.js';
+import { CartStore } from '../utils/store.js';
 import './AdminPage.css';
 import { API_BASE_URL, sanitizeImageUrl } from '../utils/config.js';
 
@@ -1178,7 +1180,7 @@ export default function AdminPage() {
             Forbidden: Your account does not have administrative privileges. Please switch to an authorized coordinator account.
           </p>
           <SignOutButton>
-            <button className="w-full py-3 bg-gray-900 text-white font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-gray-800 transition-all duration-200 cursor-pointer">
+            <button onClick={() => { CartStore.setAuthenticated(false); clearCart(); }} className="w-full py-3 bg-gray-900 text-white font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-gray-800 transition-all duration-200 cursor-pointer">
               Sign Out / Switch Account
             </button>
           </SignOutButton>
@@ -1252,7 +1254,7 @@ export default function AdminPage() {
             Storefront
           </button>
           <SignOutButton redirectUrl="/">
-            <button className="admin-btn-danger">
+            <button onClick={() => { CartStore.setAuthenticated(false); clearCart(); }} className="admin-btn-danger">
               Sign Out
             </button>
           </SignOutButton>

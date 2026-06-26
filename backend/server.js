@@ -832,6 +832,9 @@ app.post('/api/payments/verify', requireAuth, async (req, res) => {
 
     // Duplicate payment / verification protection
     if (order.status === 'CONFIRMED' || order.payment?.status === 'SUCCESS') {
+      await prisma.cartItem.deleteMany({
+        where: { userId: dbUser.id }
+      });
       return res.status(200).json({ success: true, message: 'Payment already verified and order confirmed.' });
     }
 
@@ -932,6 +935,10 @@ app.post('/api/payments/verify', requireAuth, async (req, res) => {
           transactionId: razorpayPaymentId,
           paidAt: new Date()
         }
+      });
+
+      await tx.cartItem.deleteMany({
+        where: { userId: dbUser.id }
       });
     }, {
       timeout: 15000

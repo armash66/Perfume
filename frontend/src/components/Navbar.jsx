@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { SignedIn, SignedOut, SignInButton, SignOutButton } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CartStore } from '../utils/store.js';
+import { clearCart } from '../utils/cartHelper.js';
 import { sanitizeImageUrl } from '../utils/config.js';
 import './Navbar.css';
 
@@ -737,7 +738,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
             <li><a href="#profile?tab=security" onClick={(e) => handleLinkClick(e, 'profile')}>Account Security</a></li>
             <li>
               <SignOutButton redirectUrl="/">
-                <a href="#" onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); }}>Log Out</a>
+                <a href="#" onClick={() => { CartStore.setAuthenticated(false); clearCart(); setIsMobileMenuOpen(false); }}>Log Out</a>
               </SignOutButton>
             </li>
           </SignedIn>

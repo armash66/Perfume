@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import SignatureCollection from './components/SignatureCollection';
@@ -19,9 +20,13 @@ import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentFailurePage from './components/PaymentFailurePage';
 import MiniBag from './components/MiniBag';
 import { API_BASE_URL } from './utils/config.js';
+import { clearCart } from './utils/cartHelper.js';
+import { CartStore } from './utils/store.js';
 
 
 function App() {
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+
   const getPageFromHash = () => {
     const fullHash = window.location.hash.replace('#', '');
     const hash = fullHash.split('?')[0];
@@ -162,6 +167,14 @@ function App() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [activePage]);
+
+  useEffect(() => {
+    if (!authLoaded) return;
+    CartStore.setAuthenticated(isSignedIn);
+    if (authLoaded && !isSignedIn) {
+      clearCart();
+    }
+  }, [authLoaded, isSignedIn]);
 
 
   return (

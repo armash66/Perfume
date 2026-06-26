@@ -484,8 +484,7 @@ export const clearCart = () => {
   Object.keys(inFlightRequests).forEach(key => delete inFlightRequests[key]);
   Object.keys(originalSnapshots).forEach(key => delete originalSnapshots[key]);
   
-  CartStore.save([]);
-  CartStore.commit();
+  CartStore.clear();
   
   if (import.meta.env.DEV) {
     console.log('====== Cart Mutation clearCart ======');

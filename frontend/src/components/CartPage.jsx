@@ -382,9 +382,9 @@ export default function CartPage({ onBackToShop, products = [] }) {
             </button>
           ) : (
             <SignInButton mode="modal">
-              <button 
-                disabled={mutatingItems.size > 0}
-                className="luxury-summary-checkout-btn disabled:opacity-55 disabled:cursor-not-allowed"
+              <button
+                type="button"
+                className="luxury-summary-checkout-btn"
               >
                 <span>Sign In to Checkout</span>
               </button>

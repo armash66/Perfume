@@ -3,7 +3,8 @@ import { useAuth, useUser, SignOutButton, SignInButton } from '@clerk/clerk-reac
 import { motion, AnimatePresence } from 'framer-motion';
 import { showToast } from '../utils/toast';
 import { collectionsData } from './SignatureCollection/CollectionData';
-import { addToCart } from '../utils/cartHelper';
+import { addToCart, clearCart } from '../utils/cartHelper';
+import { CartStore } from '../utils/store.js';
 import './ProfilePage.css';
 import { API_BASE_URL } from '../utils/config.js';
 
@@ -456,7 +457,7 @@ export default function ProfilePage() {
               <div className="h-px bg-black/8 my-3" />
               
               <SignOutButton redirectUrl="/">
-                <button className="nav-tab-btn text-left text-[#8B672F] hover:text-[#1C1B18] w-full cursor-pointer">
+                <button onClick={() => { CartStore.setAuthenticated(false); clearCart(); }} className="nav-tab-btn text-left text-[#8B672F] hover:text-[#1C1B18] w-full cursor-pointer">
                   Sign Out
                 </button>
               </SignOutButton>
