@@ -387,7 +387,7 @@ export default function ProfilePage() {
           </p>
           <SignInButton mode="modal">
             <button 
-              className="w-full py-3.5 bg-[#1C1B18] text-[#FEFCF9] hover:bg-[#8B672F] text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300 shadow-sm cursor-pointer"
+              className="profile-btn-primary w-full py-3.5 text-[0.68rem]"
             >
               Authenticate Session
             </button>
@@ -510,7 +510,7 @@ export default function ProfilePage() {
                       </div>
                       <button
                         onClick={() => handleReorder(metrics.lastOrder)}
-                        className="py-3 px-6 bg-[#1C1B18] text-[#FEFCF9] hover:bg-[#8B672F] text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300 w-full sm:w-auto cursor-pointer text-center"
+                        className="profile-btn-primary py-3 px-6 text-[0.68rem] w-full sm:w-auto"
                       >
                         Reorder Now
                       </button>
@@ -569,7 +569,7 @@ export default function ProfilePage() {
                       <button
                         type="submit"
                         disabled={savingProfile}
-                        className="py-3 px-8 bg-[#1C1B18] hover:bg-[#8B672F] text-[#FEFCF9] text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer shadow-sm"
+                        className="profile-btn-primary py-3 px-8 text-[0.68rem]"
                       >
                         {savingProfile ? 'Saving Details...' : 'Save Profile'}
                       </button>
@@ -600,7 +600,7 @@ export default function ProfilePage() {
                       </p>
                       <button
                         onClick={() => { window.location.hash = 'shop'; }}
-                        className="mt-6 py-2.5 px-6 bg-[#1C1B18] text-[#FEFCF9] hover:bg-[#B08A50] text-[0.65rem] font-bold tracking-widest uppercase transition-colors duration-300"
+                        className="profile-btn-primary mt-6 py-2.5 px-6 text-[0.65rem]"
                       >
                         Explore Collections
                       </button>
@@ -651,7 +651,7 @@ export default function ProfilePage() {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
-                                  className="py-2 px-4 border border-black/10 text-black/70 hover:text-black hover:border-black/25 text-[0.62rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer bg-transparent"
+                                  className="profile-btn-outline py-2 px-4 text-[0.62rem]"
                                 >
                                   {isExpanded ? 'Hide Details' : 'View Details'}
                                 </button>
@@ -659,13 +659,13 @@ export default function ProfilePage() {
                                   <>
                                     <button
                                       onClick={() => showToast('Connecting to logistics server... Status: In Transit.', 'info')}
-                                      className="py-2 px-4 border border-black/10 text-black/70 hover:text-black hover:border-black/25 text-[0.62rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer bg-transparent"
+                                      className="profile-btn-outline py-2 px-4 text-[0.62rem]"
                                     >
                                       Track Order
                                     </button>
                                     <button
                                       onClick={() => showToast('Generating invoice download... PDF will start downloading shortly.', 'info')}
-                                      className="py-2 px-4 border border-black/10 text-black/70 hover:text-black hover:border-black/25 text-[0.62rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer bg-transparent"
+                                      className="profile-btn-outline py-2 px-4 text-[0.62rem]"
                                     >
                                       Download Invoice
                                     </button>
@@ -676,7 +676,7 @@ export default function ProfilePage() {
                               {/* Reorder Button */}
                               <button
                                 onClick={() => handleReorder(order)}
-                                className="py-2 px-4 bg-[#1C1B18] text-[#FEFCF9] hover:bg-[#B08A50] text-[0.62rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer shadow-sm ml-auto"
+                                className="profile-btn-primary py-2 px-4 text-[0.62rem] ml-auto"
                               >
                                 Reorder Items
                               </button>
@@ -763,7 +763,7 @@ export default function ProfilePage() {
                           resetAddressForm();
                           setShowAddressForm(true);
                         }}
-                        className="py-2 px-5 border border-[#1C1B18] text-[#1C1B18] hover:bg-[#1C1B18] hover:text-[#FEFCF9] text-[0.65rem] font-bold tracking-widest uppercase transition-all duration-300"
+                        className="profile-btn-outline py-2 px-5 text-[0.65rem]"
                       >
                         + Add Address
                       </button>
@@ -871,7 +871,7 @@ export default function ProfilePage() {
                           <button
                             type="submit"
                             disabled={savingAddress}
-                            className="py-3 px-6 bg-[#1C1B18] text-[#FEFCF9] hover:bg-[#8B672F] text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer"
+                            className="profile-btn-primary py-3 px-6 text-[0.68rem]"
                           >
                             {savingAddress ? 'Saving...' : 'Save Destination'}
                           </button>
@@ -881,7 +881,7 @@ export default function ProfilePage() {
                               setShowAddressForm(false);
                               resetAddressForm();
                             }}
-                            className="py-3 px-6 border border-black/10 text-black/70 hover:text-black hover:border-black text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300"
+                            className="profile-btn-outline py-3 px-6 text-[0.68rem]"
                           >
                             Cancel
                           </button>
@@ -896,7 +896,7 @@ export default function ProfilePage() {
                           resetAddressForm();
                           setShowAddressForm(true);
                         }}
-                        className="mt-6 py-2.5 px-6 bg-[#1C1B18] text-[#FEFCF9] hover:bg-[#8B672F] text-[0.65rem] font-bold tracking-widest uppercase transition-colors"
+                        className="profile-btn-primary mt-6 py-2.5 px-6 text-[0.65rem]"
                       >
                         Add Shipping Address
                       </button>

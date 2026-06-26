@@ -175,3 +175,66 @@
   text-transform: uppercase;
   padding: 0.2rem 0.5rem;
 }
+
+/* Custom Profile Buttons to match wishlist/cart collection style */
+.profile-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1C1B18;
+  border: 1px solid #1C1B18;
+  color: #FEFCF9 !important;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.35s ease;
+  box-shadow: 0 4px 12px rgba(28, 27, 24, 0.1);
+  text-decoration: none;
+}
+
+.profile-btn-primary:hover {
+  background-color: #8B672F;
+  border-color: #8B672F;
+  color: #FEFCF9 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(176, 138, 80, 0.25);
+}
+
+.profile-btn-primary:active {
+  transform: translateY(0);
+}
+
+.profile-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Secondary / Outline Profile Buttons */
+.profile-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border: 1px solid rgba(28, 27, 24, 0.18);
+  color: #1C1B18 !important;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.35s ease;
+}
+
+.profile-btn-outline:hover {
+  border-color: #8B672F;
+  color: #8B672F !important;
+  background-color: rgba(139, 103, 47, 0.03);
+  transform: translateY(-1px);
+}
+
+.profile-btn-outline:active {
+  transform: translateY(0);
+}
+
