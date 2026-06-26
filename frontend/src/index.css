@@ -1435,6 +1435,143 @@ html {
   opacity: 0.85;
 }
 
+/* ── Choose Your Bottle Section ── */
+.pdp-bottle-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.pdp-bottle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  width: 100%;
+}
+
+/* 5ml grid: always 2 columns (only 2 options) */
+.pdp-bottle-grid--2col {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 599px) {
+  .pdp-bottle-grid {
+    grid-template-columns: 1fr;
+    gap: 0.625rem;
+  }
+  /* On mobile, 5ml 2-col grid also stacks vertically */
+  .pdp-bottle-grid--2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pdp-bottle-card {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1.5px solid rgba(28, 27, 24, 0.15);
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+  min-height: 72px;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.pdp-bottle-card:hover {
+  border-color: rgba(28, 27, 24, 0.4);
+  box-shadow: 0 4px 12px rgba(28, 27, 24, 0.05);
+}
+
+.pdp-bottle-card--active {
+  border-color: #8B672F;
+  background: rgba(139, 103, 47, 0.03);
+  box-shadow: 0 4px 16px rgba(139, 103, 47, 0.08);
+}
+
+.pdp-bottle-card:focus-visible {
+  outline: 2px solid #8B672F;
+  outline-offset: 3px;
+}
+
+.pdp-bottle-img-wrap {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #F7F3ED;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdp-bottle-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pdp-bottle-img--black {
+  transform: scale(1.65);
+}
+
+.pdp-bottle-img--gold {
+  transform: scale(1.65);
+}
+
+.pdp-bottle-img--premium {
+  transform: scale(1.55);
+}
+
+.pdp-bottle-img--travel {
+  transform: scale(1.5);
+}
+
+/* 5ml mini spray bottles */
+.pdp-bottle-img--mini-black {
+  transform: scale(1.6);
+}
+
+.pdp-bottle-img--mini-gold {
+  transform: scale(1.6);
+}
+
+.pdp-bottle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+  flex: 1;
+}
+
+.pdp-bottle-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1C1B18;
+}
+
+.pdp-bottle-sub {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #8B672F;
+  letter-spacing: 0.02em;
+}
+
 /* ── Quantity + Availability Row ── */
 .pdp-qty-avail-row {
   display: flex;

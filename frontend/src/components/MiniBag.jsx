@@ -191,7 +191,28 @@ export default function MiniBag({ products = [], onCloseMiniBag }) {
             <div className="added-item-details">
               <span className="added-item-brand">{addedItem.brand}</span>
               <h4 className="added-item-name">{addedItem.name}</h4>
-              <span className="added-item-variant">Size: {addedItem.size}</span>
+              {(() => {
+                let size = addedItem.size || '';
+                let bottle = addedItem.bottleType || '';
+                let cleanSize = size
+                  .replace(/\s*\(Classic Metal Atomiser 10ML \((Black|Gold)\)\)/gi, '')
+                  .replace(/\s*\(Premium Metal Atomiser\)/gi, '')
+                  .replace(/\s*\(Travel-Safe\)/gi, '')
+                  .replace(/\s*\(Classic\)/gi, '')
+                  .replace(/\s*\(Gold\)/gi, '')
+                  .replace(/\s*\(Capsule\)/gi, '');
+                
+                if (!bottle && cleanSize.toLowerCase().includes('10ml')) {
+                  bottle = 'Classic Metal Atomiser 10ML (Black)';
+                }
+                
+                return (
+                  <>
+                    <span className="added-item-variant">Size: {cleanSize}</span>
+                    {bottle && <span className="added-item-variant mt-0.5 block">Bottle: {bottle}</span>}
+                  </>
+                );
+              })()}
               <div className="added-item-pricing">
                 <span className="added-item-qty">Qty: {addedItem.quantity}</span>
                 <span className="added-item-price">₹{addedItem.price}</span>
