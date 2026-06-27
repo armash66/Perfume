@@ -6,6 +6,8 @@ import { Webhook } from 'svix';
 import { prisma, verifyDatabaseSchema } from './lib/prisma.js';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
+import { deductFromBottle, restoreToBottle, getTotalOpenML, recomputeVariantStock } from './lib/bottleInventory.js';
+import { sendLowStockAlert, sendNewOrderAlert } from './lib/emailService.js';
 
 // Load environment variables
 dotenv.config();
@@ -675,6 +677,40 @@ function computeEstimatedDelivery(shippingMethod) {
   }
 }
 
+// Helper to send email alerts in the background
+async function triggerOrderAlerts(orderId, customerName, items) {
+  try {
+    const orderWithDetails = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { orderItems: true }
+    });
+    if (orderWithDetails) {
+      // Send new order email alert
+      await sendNewOrderAlert(orderWithDetails, customerName);
+    }
+
+    // Check low stock on all ordered products' active bottles
+    for (const item of items) {
+      const openBottles = await prisma.bottleInventory.findMany({
+        where: { productId: item.productId || item.id, status: 'OPEN' }
+      });
+      for (const bottle of openBottles) {
+        if (bottle.remainingML <= bottle.lowStockThresholdML) {
+          const product = await prisma.product.findUnique({
+            where: { id: item.productId || item.id },
+            select: { name: true }
+          });
+          if (product) {
+            await sendLowStockAlert(product.name, bottle.bottleLabel, bottle.remainingML, bottle.bottleSizeML);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error running triggerOrderAlerts background alerts:', err);
+  }
+}
+
 // POST place order
 app.post('/api/orders', requireAuth, async (req, res) => {
   const { addressId, items, paymentMethod, notes, shippingMethod: rawShippingMethod } = req.body;
@@ -728,7 +764,7 @@ app.post('/api/orders', requireAuth, async (req, res) => {
 
     // Place order in transaction
     const order = await prisma.$transaction(async (tx) => {
-      // 1. Validate variant stock and resolve missing variantIds
+      // 1. Validate variant stock against BottleInventory and resolve missing variantIds
       for (const item of items) {
         let variantId = item.variantId;
         if (!variantId || variantId === 'default-variant') {
@@ -748,8 +784,12 @@ app.post('/api/orders', requireAuth, async (req, res) => {
         if (!variant) {
           throw new Error(`Variant not found: ${variantId}`);
         }
-        if (variant.stock < item.quantity) {
-          throw new Error(`Insufficient stock for ${item.name} (${item.size}). Available: ${variant.stock}`);
+        
+        const totalOpenML = await getTotalOpenML(tx, item.productId || item.id);
+        const neededML = variant.volumeML * item.quantity;
+        if (totalOpenML < neededML) {
+          const availableUnits = Math.floor(totalOpenML / variant.volumeML);
+          throw new Error(`Insufficient stock for ${item.name} (${item.size}). Only ${availableUnits} units available.`);
         }
       }
 
@@ -783,28 +823,19 @@ app.post('/api/orders', requireAuth, async (req, res) => {
         }
       });
 
-      // 3. Deduct stock and log to InventoryLog
+      // 3. Deduct stock from BottleInventory and log InventoryMovement
       for (const item of items) {
         const variant = await tx.productVariant.findUnique({
           where: { id: item.variantId }
         });
-        const oldStock = variant.stock;
-        const newStock = oldStock - item.quantity;
-
-        await tx.productVariant.update({
-          where: { id: item.variantId },
-          data: { stock: newStock }
-        });
-
-        await tx.inventoryLog.create({
-          data: {
-            variantId: item.variantId,
-            oldStock,
-            newStock,
-            changeType: 'ORDER',
-            note: `Order #${newOrder.id.slice(-8).toUpperCase()} placement`
-          }
-        });
+        
+        await deductFromBottle(
+          tx,
+          item.productId || item.id,
+          variant.volumeML,
+          item.quantity,
+          newOrder.id
+        );
       }
 
       // 4. Initialize Payment record
@@ -878,21 +909,13 @@ app.post('/api/orders', requireAuth, async (req, res) => {
               where: { id: item.variantId }
             });
             if (variant) {
-              const oldStock = variant.stock;
-              const newStock = oldStock + item.quantity;
-              await tx.productVariant.update({
-                where: { id: item.variantId },
-                data: { stock: newStock }
-              });
-              await tx.inventoryLog.create({
-                data: {
-                  variantId: item.variantId,
-                  oldStock,
-                  newStock,
-                  changeType: 'RESTOCK',
-                  note: `Order #${order.id.slice(-8).toUpperCase()} placement rolled back due to Razorpay order creation failure`
-                }
-              });
+              await restoreToBottle(
+                tx,
+                variant.productId,
+                variant.volumeML,
+                item.quantity,
+                order.id
+              );
             }
           }
         }, {
@@ -917,12 +940,14 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       });
       
       console.log(`Order placed successfully with Razorpay: ${updatedOrder.id}`);
+      triggerOrderAlerts(updatedOrder.id, dbUser.name || 'Collector', items);
       return res.status(201).json({
         ...formatOrder(updatedOrder),
         razorpayKeyId: process.env.RAZORPAY_KEY_ID ? process.env.RAZORPAY_KEY_ID.replace(/^["']|["']$/g, '').trim() : undefined
       });
     } else {
       console.log(`Order placed successfully: ${order.id}`);
+      triggerOrderAlerts(order.id, dbUser.name || 'Collector', items);
       return res.status(201).json(formatOrder(order));
     }
   } catch (err) {
@@ -1058,23 +1083,13 @@ app.post('/api/payments/verify', requireAuth, async (req, res) => {
             where: { id: item.variantId }
           });
           if (variant) {
-            const oldStock = variant.stock;
-            const newStock = oldStock + item.quantity;
-
-            await tx.productVariant.update({
-              where: { id: item.variantId },
-              data: { stock: newStock }
-            });
-
-            await tx.inventoryLog.create({
-              data: {
-                variantId: item.variantId,
-                oldStock,
-                newStock,
-                changeType: 'RESTOCK',
-                note: `Order #${orderId.slice(-8).toUpperCase()} signature verification failed`
-              }
-            });
+            await restoreToBottle(
+              tx,
+              variant.productId,
+              variant.volumeML,
+              item.quantity,
+              orderId
+            );
           }
         }
       }, {
@@ -1175,23 +1190,13 @@ app.post('/api/payments/fail', requireAuth, async (req, res) => {
           where: { id: item.variantId }
         });
         if (variant) {
-          const oldStock = variant.stock;
-          const newStock = oldStock + item.quantity;
-
-          await tx.productVariant.update({
-            where: { id: item.variantId },
-            data: { stock: newStock }
-          });
-
-          await tx.inventoryLog.create({
-            data: {
-              variantId: item.variantId,
-              oldStock,
-              newStock,
-              changeType: 'RESTOCK',
-              note: `Order #${orderId.slice(-8).toUpperCase()} payment failure notification`
-            }
-          });
+          await restoreToBottle(
+            tx,
+            variant.productId,
+            variant.volumeML,
+            item.quantity,
+            orderId
+          );
         }
       }
     }, {
@@ -1294,23 +1299,13 @@ app.post('/api/webhooks/razorpay', express.json(), async (req, res) => {
                 where: { id: item.variantId }
               });
               if (variant) {
-                const oldStock = variant.stock;
-                const newStock = oldStock + item.quantity;
-
-                await tx.productVariant.update({
-                  where: { id: item.variantId },
-                  data: { stock: newStock }
-                });
-
-                await tx.inventoryLog.create({
-                  data: {
-                    variantId: item.variantId,
-                    oldStock,
-                    newStock,
-                    changeType: 'RESTOCK',
-                    note: `Order #${order.id.slice(-8).toUpperCase()} payment failed via webhook`
-                  }
-                });
+                await restoreToBottle(
+                  tx,
+                  variant.productId,
+                  variant.volumeML,
+                  item.quantity,
+                  order.id
+                );
               }
             }
           }, {
@@ -1455,6 +1450,9 @@ app.get('/api/products', async (req, res) => {
         reviews: {
           where: { approved: true },
           select: { rating: true }
+        },
+        bottles: {
+          where: { status: 'OPEN' }
         }
       }
     });
@@ -1464,6 +1462,8 @@ app.get('/api/products', async (req, res) => {
       const image = p.images[0] ? p.images[0].imageUrl : null;
       const ratings = p.reviews.map(r => r.rating);
       const avgRating = ratings.length > 0 ? (ratings.reduce((sum, r) => sum + r, 0) / ratings.length) : 0;
+      
+      const totalRemainingML = p.bottles.reduce((sum, b) => sum + b.remainingML, 0);
 
       return {
         id: p.id,
@@ -1482,7 +1482,7 @@ app.get('/api/products', async (req, res) => {
           label: v.size.includes('5ml') ? 'Travel friendly' : 
                  v.size.includes('10ml') ? 'Best value' : 
                  v.size.includes('20ml') ? 'Premium decant' : 'Collector size',
-          stock: v.stock,
+          stock: Math.floor(totalRemainingML / v.volumeML),
           sku: v.sku,
           variantId: v.id
         })),
@@ -1524,6 +1524,9 @@ app.get('/api/products/:slug', async (req, res) => {
               select: { name: true }
             }
           }
+        },
+        bottles: {
+          where: { status: 'OPEN' }
         }
       }
     });
@@ -1533,9 +1536,11 @@ app.get('/api/products/:slug', async (req, res) => {
     }
 
     if (product.variants) {
+      const totalRemainingML = product.bottles ? product.bottles.reduce((sum, b) => sum + b.remainingML, 0) : 0;
       product.variants = product.variants.map(v => ({
         ...v,
-        price: parseFloat(v.price)
+        price: parseFloat(v.price),
+        stock: Math.floor(totalRemainingML / v.volumeML)
       }));
     }
 
@@ -1875,20 +1880,64 @@ app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (req, res) => {
       where: { status: 'PENDING' }
     });
 
-    const allVariants = await prisma.productVariant.findMany({
-      where: { isActive: true },
+    const allBottles = await prisma.bottleInventory.findMany({
       include: {
         product: { select: { name: true } }
       }
     });
-    const lowStockVariants = allVariants.filter(v => v.stock <= v.lowStockThreshold);
-    const formattedLowStock = lowStockVariants.map(v => ({
-      productName: v.product.name,
-      size: v.size,
-      sku: v.sku,
-      stock: v.stock,
-      lowStockThreshold: v.lowStockThreshold
+
+    const totalBottles = allBottles.length;
+    const openBottles = allBottles.filter(b => b.status === 'OPEN');
+    const openBottlesCount = openBottles.length;
+    const emptyBottlesCount = allBottles.filter(b => b.status === 'EMPTY').length;
+    const lowStockBottles = openBottles.filter(b => b.remainingML <= b.lowStockThresholdML);
+    const lowStockBottlesCount = lowStockBottles.length;
+
+    const formattedLowStock = lowStockBottles.map(b => ({
+      productName: b.product?.name || 'Unknown Scent',
+      bottleLabel: b.bottleLabel,
+      remainingML: b.remainingML,
+      bottleSizeML: b.bottleSizeML,
+      lowStockThreshold: b.lowStockThresholdML
     }));
+
+    const estimatedInventoryValue = allBottles.reduce((sum, b) => {
+      if (b.status === 'RETIRED') return sum;
+      if (!b.costPrice || !b.bottleSizeML || b.remainingML <= 0) return sum;
+      const price = parseFloat(b.costPrice) || 0;
+      const size = b.bottleSizeML || 1;
+      const remaining = b.remainingML || 0;
+      return sum + (price * remaining) / size;
+    }, 0);
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todaySales = await prisma.inventoryMovement.aggregate({
+      where: {
+        type: 'SALE',
+        createdAt: { gte: todayStart }
+      },
+      _sum: {
+        quantityML: true
+      }
+    });
+    const todayConsumptionML = todaySales._sum.quantityML ? Math.abs(todaySales._sum.quantityML) : 0;
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const weekSales = await prisma.inventoryMovement.aggregate({
+      where: {
+        type: 'SALE',
+        createdAt: { gte: sevenDaysAgo }
+      },
+      _sum: {
+        quantityML: true
+      }
+    });
+    const weekConsumptionML = weekSales._sum.quantityML ? Math.abs(weekSales._sum.quantityML) : 0;
 
     const bestSellersGroupBy = await prisma.orderItem.groupBy({
       by: ['productId'],
@@ -1929,7 +1978,14 @@ app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (req, res) => {
       lowStockVariants: formattedLowStock,
       bestSellers,
       pendingReviews,
-      failedPayments
+      failedPayments,
+      totalBottles,
+      openBottles: openBottlesCount,
+      lowStockBottles: lowStockBottlesCount,
+      emptyBottles: emptyBottlesCount,
+      estimatedInventoryValue,
+      todayConsumptionML,
+      weekConsumptionML
     });
   } catch (err) {
     console.error('Failed to fetch admin dashboard stats:', err);
@@ -2519,11 +2575,13 @@ app.post('/api/cart', requireAuth, async (req, res) => {
     });
 
     const newQuantity = existing ? (existing.quantity + qty) : qty;
-    if (variant.stock < newQuantity) {
+    const totalOpenML = await getTotalOpenML(prisma, variant.productId);
+    const availableStock = Math.floor(totalOpenML / variant.volumeML);
+    if (availableStock < newQuantity) {
       return res.status(400).json({
         error: 'INSUFFICIENT_STOCK',
-        message: `Insufficient stock. Only ${variant.stock} available.`,
-        stock: variant.stock
+        message: `Insufficient stock. Only ${availableStock} available.`,
+        stock: availableStock
       });
     }
 
@@ -2595,11 +2653,15 @@ app.patch('/api/cart/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'VARIANT_NOT_FOUND', message: 'Variant not found for this cart item.' });
     }
     if (cartItem.variant.stock < qty) {
-      return res.status(400).json({
-        error: 'INSUFFICIENT_STOCK',
-        message: `Insufficient stock. Only ${cartItem.variant.stock} available.`,
-        stock: cartItem.variant.stock
-      });
+      const totalOpenML = await getTotalOpenML(prisma, cartItem.variant.productId);
+      const availableStock = Math.floor(totalOpenML / cartItem.variant.volumeML);
+      if (availableStock < qty) {
+        return res.status(400).json({
+          error: 'INSUFFICIENT_STOCK',
+          message: `Insufficient stock. Only ${availableStock} available.`,
+          stock: availableStock
+        });
+      }
     }
 
     const updated = await prisma.cartItem.update({
@@ -2674,6 +2736,239 @@ app.get('/api/orders/:id', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Failed to fetch order details:', err);
     return res.status(500).json({ error: 'Failed to fetch order details' });
+  }
+});
+
+// ============================================================
+// BOTTLE INVENTORY ADMIN API ROUTES
+// ============================================================
+
+// GET all bottles (admin only)
+app.get('/api/admin/bottles', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const bottles = await prisma.bottleInventory.findMany({
+      include: {
+        product: {
+          select: {
+            name: true,
+            variants: {
+              where: { isActive: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return res.status(200).json(bottles);
+  } catch (err) {
+    console.error('Failed to fetch admin bottles:', err);
+    return res.status(500).json({ error: 'Failed to fetch admin bottles' });
+  }
+});
+
+// POST register a new bottle (admin only)
+app.post('/api/admin/bottles', requireAuth, requireAdmin, async (req, res) => {
+  const { productId, bottleLabel, bottleSizeML, remainingML, lowStockThresholdML, purchaseDate, supplier, batchNumber, costPrice, notes } = req.body;
+  
+  if (!productId || !bottleLabel || !bottleSizeML || remainingML === undefined) {
+    return res.status(400).json({ error: 'Missing required bottle details (productId, label, size, remaining)' });
+  }
+
+  try {
+    const newBottle = await prisma.$transaction(async (tx) => {
+      const bottle = await tx.bottleInventory.create({
+        data: {
+          productId,
+          bottleLabel,
+          bottleSizeML: parseInt(bottleSizeML),
+          remainingML: parseInt(remainingML),
+          lowStockThresholdML: parseInt(lowStockThresholdML || '20'),
+          purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
+          supplier,
+          batchNumber,
+          costPrice: costPrice ? parseFloat(costPrice) : null,
+          notes,
+          status: parseInt(remainingML) === 0 ? 'EMPTY' : 'OPEN'
+        }
+      });
+
+      // Log restock movement
+      await tx.inventoryMovement.create({
+        data: {
+          bottleId: bottle.id,
+          type: 'RESTOCK',
+          quantityML: parseInt(remainingML),
+          note: 'Initial bottle registration restock',
+          adminId: req.auth.userId
+        }
+      });
+
+      // Recompute variant stock cache
+      await recomputeVariantStock(tx, productId);
+
+      return bottle;
+    });
+
+    return res.status(201).json(newBottle);
+  } catch (err) {
+    console.error('Failed to create bottle:', err);
+    return res.status(500).json({ error: 'Failed to create bottle' });
+  }
+});
+
+// PATCH update bottle details (admin only)
+app.patch('/api/admin/bottles/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { remainingML, lowStockThresholdML, status, notes, bottleLabel, supplier, batchNumber, costPrice } = req.body;
+
+  try {
+    const bottle = await prisma.bottleInventory.findUnique({
+      where: { id }
+    });
+    if (!bottle) {
+      return res.status(404).json({ error: 'Bottle not found' });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const oldRemaining = bottle.remainingML;
+      const updateData = {};
+      
+      if (remainingML !== undefined) {
+        const parsedRemaining = parseInt(remainingML);
+        updateData.remainingML = parsedRemaining;
+        updateData.status = parsedRemaining === 0 ? 'EMPTY' : (status || 'OPEN');
+      } else if (status !== undefined) {
+        updateData.status = status;
+      }
+
+      if (lowStockThresholdML !== undefined) updateData.lowStockThresholdML = parseInt(lowStockThresholdML);
+      if (notes !== undefined) updateData.notes = notes;
+      if (bottleLabel !== undefined) updateData.bottleLabel = bottleLabel;
+      if (supplier !== undefined) updateData.supplier = supplier;
+      if (batchNumber !== undefined) updateData.batchNumber = batchNumber;
+      if (costPrice !== undefined) updateData.costPrice = costPrice ? parseFloat(costPrice) : null;
+
+      const updatedBottle = await tx.bottleInventory.update({
+        where: { id },
+        data: updateData
+      });
+
+      // If stock was adjusted, log it
+      if (remainingML !== undefined && parseInt(remainingML) !== oldRemaining) {
+        const difference = parseInt(remainingML) - oldRemaining;
+        await tx.inventoryMovement.create({
+          data: {
+            bottleId: id,
+            type: 'ADJUSTMENT',
+            quantityML: difference,
+            note: notes || 'Manual stock adjustment from Admin inventory console',
+            adminId: req.auth.userId
+          }
+        });
+      }
+
+      // Recompute variant stock cache
+      await recomputeVariantStock(tx, bottle.productId);
+
+      return updatedBottle;
+    });
+
+    return res.status(200).json(updated);
+  } catch (err) {
+    console.error('Failed to update bottle:', err);
+    return res.status(500).json({ error: 'Failed to update bottle' });
+  }
+});
+
+// POST retire/decommission bottle (admin only)
+app.post('/api/admin/bottles/:id/retire', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const bottle = await prisma.bottleInventory.findUnique({ where: { id } });
+    if (!bottle) {
+      return res.status(404).json({ error: 'Bottle not found' });
+    }
+
+    const retired = await prisma.$transaction(async (tx) => {
+      const updatedBottle = await tx.bottleInventory.update({
+        where: { id },
+        data: { status: 'RETIRED' }
+      });
+
+      // Log adjustment to 0 if it wasn't already 0
+      if (bottle.remainingML > 0) {
+        await tx.inventoryMovement.create({
+          data: {
+            bottleId: id,
+            type: 'ADJUSTMENT',
+            quantityML: -bottle.remainingML,
+            note: 'Bottle retired/decommissioned',
+            adminId: req.auth.userId
+          }
+        });
+        
+        await tx.bottleInventory.update({
+          where: { id },
+          data: { remainingML: 0 }
+        });
+      }
+
+      await recomputeVariantStock(tx, bottle.productId);
+      return updatedBottle;
+    });
+
+    return res.status(200).json(retired);
+  } catch (err) {
+    console.error('Failed to retire bottle:', err);
+    return res.status(500).json({ error: 'Failed to retire bottle' });
+  }
+});
+
+// GET movements audit trail for a bottle (admin only)
+app.get('/api/admin/bottles/:id/movements', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const movements = await prisma.inventoryMovement.findMany({
+      where: { bottleId: id },
+      orderBy: { createdAt: 'desc' }
+    });
+    return res.status(200).json(movements);
+  } catch (err) {
+    console.error('Failed to fetch bottle movements:', err);
+    return res.status(500).json({ error: 'Failed to fetch bottle movements' });
+  }
+});
+
+// GET recent inventory movements for dashboard widget (admin only)
+app.get('/api/admin/movements/recent', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const movements = await prisma.inventoryMovement.findMany({
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        bottle: {
+          include: {
+            product: { select: { name: true } }
+          }
+        }
+      }
+    });
+
+    const response = movements.map(m => ({
+      id: m.id,
+      date: m.createdAt,
+      productName: m.bottle?.product?.name || 'Unknown Scent',
+      bottleLabel: m.bottle?.bottleLabel || 'N/A',
+      changeAmount: m.quantityML,
+      reason: m.type,
+      adminUser: m.adminId || (m.orderId ? `Order #${m.orderId.slice(-8).toUpperCase()}` : 'System Autopilot'),
+      note: m.note
+    }));
+
+    return res.status(200).json(response);
+  } catch (err) {
+    console.error('Failed to fetch recent movements:', err);
+    return res.status(500).json({ error: 'Failed to fetch recent movements' });
   }
 });
 

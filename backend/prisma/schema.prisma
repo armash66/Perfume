@@ -48,6 +48,19 @@ enum InventoryChangeType {
   MANUAL_EDIT
 }
 
+enum BottleStatus {
+  OPEN
+  EMPTY
+  RETIRED
+}
+
+enum MovementType {
+  SALE
+  RESTOCK
+  ADJUSTMENT
+  CANCELLATION
+}
+
 // ============================================================
 // USER & ADDRESS
 // ============================================================
@@ -108,7 +121,7 @@ model Category {
 }
 
 // ============================================================
-// PRODUCT, IMAGES, VARIANTS
+// PRODUCT, IMAGES, VARIANTS, BOTTLES
 // ============================================================
 
 model Product {
@@ -128,6 +141,7 @@ model Product {
   variants   ProductVariant[]
   reviews    Review[]
   orderItems OrderItem[]
+  bottles    BottleInventory[]
 
   @@index([slug])
   @@index([name])
@@ -156,6 +170,7 @@ model ProductVariant {
   price             Decimal  @db.Decimal(10, 2)
   stock             Int      @default(0)
   lowStockThreshold Int      @default(5)
+  volumeML          Int      @default(5)
   sku               String   @unique
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
@@ -170,6 +185,51 @@ model ProductVariant {
   @@index([productId])
   @@index([sku])
   @@map("product_variants")
+}
+
+model BottleInventory {
+  id                  String             @id @default(cuid())
+  productId           String
+  bottleLabel         String                                // e.g. "Bottle #001"
+  bottleSizeML        Int                                   // e.g. 100, 50, 75, 200
+  remainingML         Int                                   // current liquid level
+  lowStockThresholdML Int                @default(20)       // threshold config per bottle
+  status              BottleStatus       @default(OPEN)     // OPEN, EMPTY, RETIRED
+  
+  // Provenance / Identity fields
+  purchaseDate        DateTime?
+  supplier            String?
+  batchNumber         String?
+  costPrice           Decimal?           @db.Decimal(10, 2)
+  notes               String?
+  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  product             Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  movements           InventoryMovement[]
+
+  @@index([productId])
+  @@index([status])
+  @@map("bottle_inventory")
+}
+
+model InventoryMovement {
+  id         String       @id @default(cuid())
+  bottleId   String
+  type       MovementType
+  quantityML Int          // negative for deduction, positive for addition
+  orderId    String?
+  adminId    String?
+  note       String?
+  createdAt  DateTime     @default(now())
+
+  bottle BottleInventory @relation(fields: [bottleId], references: [id], onDelete: Cascade)
+
+  @@index([bottleId])
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("inventory_movements")
 }
 
 // ============================================================

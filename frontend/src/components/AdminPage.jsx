@@ -25,6 +25,25 @@ export default function AdminPage() {
   const [inventoryLogs, setInventoryLogs] = useState([]);
   const [dashboardStats, setDashboardStats] = useState(null);
 
+  // Bottle-based inventory states
+  const [bottles, setBottles] = useState([]);
+  const [recentMovements, setRecentMovements] = useState([]);
+  const [selectedBottleMovements, setSelectedBottleMovements] = useState(null);
+  const [showBottleModal, setShowBottleModal] = useState(false);
+  const [editingBottle, setEditingBottle] = useState(null);
+  const [bottleForm, setBottleForm] = useState({
+    productId: '',
+    bottleLabel: '',
+    bottleSizeML: '100',
+    remainingML: '100',
+    lowStockThresholdML: '20',
+    purchaseDate: new Date().toISOString().split('T')[0],
+    supplier: '',
+    batchNumber: '',
+    costPrice: '',
+    notes: ''
+  });
+
   // Settings states
   const [settingsTab, setSettingsTab] = useState('store');
   const [storeSettings, setStoreSettings] = useState({
@@ -206,6 +225,28 @@ export default function AdminPage() {
       if (revRes.ok) {
         const revData = await revRes.json();
         setReviews(revData);
+      }
+
+      // Fetch Bottles
+      try {
+        const bottleRes = await fetch(`${API_BASE_URL}/api/admin/bottles`, { headers });
+        if (bottleRes.ok) {
+          const bottleData = await bottleRes.json();
+          setBottles(bottleData);
+        }
+      } catch (err) {
+        console.error('Failed to fetch bottles:', err);
+      }
+
+      // Fetch Recent Movements
+      try {
+        const movementRes = await fetch(`${API_BASE_URL}/api/admin/movements/recent`, { headers });
+        if (movementRes.ok) {
+          const movementData = await movementRes.json();
+          setRecentMovements(movementData);
+        }
+      } catch (err) {
+        console.error('Failed to fetch recent movements:', err);
       }
 
       // Fetch Inventory Audit Logs
@@ -412,59 +453,150 @@ export default function AdminPage() {
     setShowProductModal(true);
   };
 
-  // DB-Backed Single Variant manual stock adjustment
-  const handleRestockInventory = async (sku, newStock) => {
+  // Bottle Inventory Event Handlers
+  const handleRegisterBottle = async (e) => {
+    e.preventDefault();
     try {
       const headers = await getAdminHeaders();
-      const res = await fetch(`${API_BASE_URL}/api/admin/inventory/adjust`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/bottles`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          sku,
-          newStock: parseInt(newStock),
-          reason: 'RESTOCK',
-          note: 'Operator Manual Adjustment'
+          ...bottleForm,
+          bottleSizeML: parseInt(bottleForm.bottleSizeML),
+          remainingML: parseInt(bottleForm.remainingML),
+          lowStockThresholdML: parseInt(bottleForm.lowStockThresholdML),
+          costPrice: bottleForm.costPrice ? parseFloat(bottleForm.costPrice) : undefined
         })
       });
       if (res.ok) {
+        showToast('New bottle registered successfully', 'success');
+        setShowBottleModal(false);
+        setBottleForm({
+          productId: '',
+          bottleLabel: '',
+          bottleSizeML: '100',
+          remainingML: '100',
+          lowStockThresholdML: '20',
+          purchaseDate: new Date().toISOString().split('T')[0],
+          supplier: '',
+          batchNumber: '',
+          costPrice: '',
+          notes: ''
+        });
         fetchCoreData();
       } else {
         const err = await res.json();
-        showToast(err.error || 'Failed to adjust stock count', 'error');
+        showToast(err.error || 'Failed to register bottle', 'error');
       }
     } catch (err) {
-      console.error(err);
+      console.error('Register bottle failed:', err);
+      showToast('Error registering bottle', 'error');
     }
   };
 
-  // DB-Backed Bulk restock of all low stock variants (+20 units)
+  const handleUpdateBottle = async (e) => {
+    e.preventDefault();
+    if (!editingBottle) return;
+    try {
+      const headers = await getAdminHeaders();
+      const res = await fetch(`${API_BASE_URL}/api/admin/bottles/${editingBottle.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          ...bottleForm,
+          bottleSizeML: parseInt(bottleForm.bottleSizeML),
+          remainingML: parseInt(bottleForm.remainingML),
+          lowStockThresholdML: parseInt(bottleForm.lowStockThresholdML),
+          costPrice: bottleForm.costPrice ? parseFloat(bottleForm.costPrice) : null
+        })
+      });
+      if (res.ok) {
+        showToast('Bottle details updated successfully', 'success');
+        setShowBottleModal(false);
+        setEditingBottle(null);
+        fetchCoreData();
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Failed to update bottle', 'error');
+      }
+    } catch (err) {
+      console.error('Update bottle failed:', err);
+      showToast('Error updating bottle', 'error');
+    }
+  };
+
+  const handleRetireBottle = async (bottleId) => {
+    if (!window.confirm('Are you sure you want to retire this bottle? This will empty the bottle and mark it as retired.')) {
+      return;
+    }
+    try {
+      const headers = await getAdminHeaders();
+      const res = await fetch(`${API_BASE_URL}/api/admin/bottles/${bottleId}/retire`, {
+        method: 'POST',
+        headers
+      });
+      if (res.ok) {
+        showToast('Bottle retired successfully', 'success');
+        fetchCoreData();
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Failed to retire bottle', 'error');
+      }
+    } catch (err) {
+      console.error('Retire bottle failed:', err);
+      showToast('Error retiring bottle', 'error');
+    }
+  };
+
+  const handleViewBottleMovements = async (bottle) => {
+    try {
+      const headers = await getAdminHeaders();
+      const res = await fetch(`${API_BASE_URL}/api/admin/bottles/${bottle.id}/movements`, { headers });
+      if (res.ok) {
+        const movementData = await res.json();
+        setSelectedBottleMovements({
+          bottle,
+          movements: movementData
+        });
+      } else {
+        showToast('Failed to fetch movements', 'error');
+      }
+    } catch (err) {
+      console.error('Fetch movements failed:', err);
+      showToast('Error fetching movements', 'error');
+    }
+  };
+
+  // DB-Backed Bulk restock of all low stock bottles
   const handleBulkRestock = async () => {
-    const lowStockItems = inventoryItems.filter(item => item.status !== 'In Stock');
-    if (lowStockItems.length === 0) {
-      showToast('All items are currently fully stocked.', 'success');
+    const lowStockBottlesList = bottles.filter(b => b.status === 'OPEN' && b.remainingML <= b.lowStockThresholdML);
+    if (lowStockBottlesList.length === 0) {
+      showToast('All open bottles are currently above their low-stock thresholds.', 'success');
       return;
     }
     
     setLoadingData(true);
     try {
       const headers = await getAdminHeaders();
-      for (const item of lowStockItems) {
-        const newStock = item.stock + 20;
-        await fetch(`${API_BASE_URL}/api/admin/inventory/adjust`, {
-          method: 'POST',
+      for (const bottle of lowStockBottlesList) {
+        const topUp = bottle.bottleSizeML - bottle.remainingML;
+        if (topUp <= 0) continue;
+
+        await fetch(`${API_BASE_URL}/api/admin/bottles/${bottle.id}`, {
+          method: 'PATCH',
           headers,
           body: JSON.stringify({
-            sku: item.sku,
-            newStock,
-            reason: 'RESTOCK',
-            note: 'System Bulk Restock trigger'
+            remainingML: bottle.bottleSizeML,
+            notes: 'System Bulk Restock: Topped up to full capacity'
           })
         });
       }
-      showToast(`Bulk restock complete! Elevated ${lowStockItems.length} low stock variants by +20 units.`, 'success');
+      showToast(`Bulk restock complete! Restocked ${lowStockBottlesList.length} bottles back to full capacity.`, 'success');
       fetchCoreData();
     } catch (err) {
       console.error('Bulk restock failed:', err);
+      showToast('Failed to complete bulk restock', 'error');
     } finally {
       setLoadingData(false);
     }
@@ -779,42 +911,25 @@ export default function AdminPage() {
     return sortData(list, categorySort);
   }, [categories, categorySearch, categorySort, products]);
 
-  const inventoryItems = useMemo(() => {
-    const items = [];
-    products.forEach(p => {
-      if (!p.variants) return;
-      p.variants.forEach(v => {
-        let status = 'In Stock';
-        if (v.stock === 0) status = 'Out of Stock';
-        else if (v.stock <= v.lowStockThreshold) status = 'Low Stock';
-
-        items.push({
-          productName: p.name,
-          sku: v.sku,
-          size: v.size,
-          stock: v.stock,
-          lowStockThreshold: v.lowStockThreshold,
-          status,
-          isActive: v.isActive && p.isActive,
-          productId: p.id
-        });
-      });
-    });
-    
-    const list = items.filter(item => {
-      const matchesSearch = item.productName?.toLowerCase().includes(inventorySearch.toLowerCase()) || item.sku?.toLowerCase().includes(inventorySearch.toLowerCase());
+  const filteredBottles = useMemo(() => {
+    const list = bottles.filter(b => {
+      const productName = b.product?.name || '';
+      const matchesSearch = productName.toLowerCase().includes(inventorySearch.toLowerCase()) || 
+                            b.bottleLabel?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
+                            b.supplier?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
+                            b.batchNumber?.toLowerCase().includes(inventorySearch.toLowerCase());
       
       let matchesFilter = true;
-      if (inventoryFilter === 'LOW_STOCK') matchesFilter = item.status === 'Low Stock';
-      else if (inventoryFilter === 'OUT_OF_STOCK') matchesFilter = item.status === 'Out of Stock';
-      else if (inventoryFilter === 'ACTIVE') matchesFilter = item.isActive;
-      else if (inventoryFilter === 'INACTIVE') matchesFilter = !item.isActive;
-      
+      if (inventoryFilter === 'LOW_STOCK') matchesFilter = b.status === 'OPEN' && b.remainingML <= b.lowStockThresholdML;
+      else if (inventoryFilter === 'OUT_OF_STOCK') matchesFilter = b.status === 'EMPTY' || b.remainingML === 0;
+      else if (inventoryFilter === 'ACTIVE') matchesFilter = b.status === 'OPEN';
+      else if (inventoryFilter === 'RETIRED') matchesFilter = b.status === 'RETIRED';
+
       return matchesSearch && matchesFilter;
     });
 
-    return sortData(list, inventorySort, 'productName');
-  }, [products, inventoryFilter, inventorySearch, inventorySort]);
+    return sortData(list, inventorySort, 'createdAt');
+  }, [bottles, inventoryFilter, inventorySearch, inventorySort]);
 
   const filteredLogs = useMemo(() => {
     const list = inventoryLogs.filter(log => {
@@ -970,7 +1085,7 @@ export default function AdminPage() {
 
     const lowStockCount = dashboardStats 
       ? (dashboardStats.lowStockVariants ? dashboardStats.lowStockVariants.length : 0)
-      : inventoryItems.filter(i => i.status !== 'In Stock').length;
+      : bottles.filter(b => b.status === 'OPEN' && b.remainingML <= b.lowStockThresholdML).length;
 
     return {
       revenueToday: revToday,
@@ -984,7 +1099,7 @@ export default function AdminPage() {
         ? (dashboardStats.totalOrders > 0 ? (dashboardStats.totalRevenue || 0) / dashboardStats.totalOrders : 0)
         : (filteredOrdersForStats.length > 0 ? (revMonth / filteredOrdersForStats.length) : 0)
     };
-  }, [filteredOrdersForStats, products, inventoryItems, customersData, dashboardStats]);
+  }, [filteredOrdersForStats, products, bottles, customersData, dashboardStats]);
 
   const generateChartPaths = useMemo(() => {
     // We will generate 7 points
@@ -1069,11 +1184,11 @@ export default function AdminPage() {
   };
 
   const exportInventoryCsv = () => {
-    let csv = 'Product,SKU,Size,Current Stock,Low Stock Threshold,Status\n';
-    inventoryItems.forEach(i => {
-      csv += `"${i.productName}","${i.sku}","${i.size}",${i.stock},${i.lowStockThreshold},"${i.status}"\n`;
+    let csv = 'Product,Bottle Label,Size (ml),Remaining (ml),Low Stock Threshold (ml),Supplier,Batch Number,Status\n';
+    filteredBottles.forEach(b => {
+      csv += `"${b.product?.name || 'Unknown'}","${b.bottleLabel}",${b.bottleSizeML},${b.remainingML},${b.lowStockThresholdML},"${b.supplier || ''}","${b.batchNumber || ''}","${b.status}"\n`;
     });
-    downloadCsv(csv, 'decant_atelier_inventory_manifest.csv');
+    downloadCsv(csv, 'decant_atelier_bottle_inventory.csv');
   };
 
   const exportProductsCsv = () => {
@@ -1401,6 +1516,55 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* Inventory Overview Widget */}
+            <div className="admin-card" style={{ padding: '1.5rem' }}>
+              <h3 className="admin-card-title" style={{ marginBottom: '1.25rem' }}>Inventory Overview</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}>
+                <div style={{ border: '1px solid var(--admin-border)', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Total Bottles</span>
+                  <strong style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827' }}>
+                    {dashboardStats?.totalBottles ?? 0}
+                  </strong>
+                </div>
+                <div style={{ border: '1px solid var(--admin-border)', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Open Bottles</span>
+                  <strong style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>
+                    {dashboardStats?.openBottles ?? 0}
+                  </strong>
+                </div>
+                <div style={{ border: '1px solid var(--admin-border)', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Low Stock Bottles</span>
+                  <strong style={{ fontSize: '1.5rem', fontWeight: 700, color: (dashboardStats?.lowStockBottles > 0) ? '#ef4444' : '#111827' }}>
+                    {dashboardStats?.lowStockBottles ?? 0}
+                  </strong>
+                </div>
+                <div style={{ border: '1px solid var(--admin-border)', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Empty Bottles</span>
+                  <strong style={{ fontSize: '1.5rem', fontWeight: 700, color: '#6b7280' }}>
+                    {dashboardStats?.emptyBottles ?? 0}
+                  </strong>
+                </div>
+                <div style={{ border: '1px solid var(--admin-border)', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Estimated Asset Value</span>
+                  <strong style={{ fontSize: '1.5rem', fontWeight: 700, color: '#8b672f' }}>
+                    ₹{Math.round(dashboardStats?.estimatedInventoryValue ?? 0).toLocaleString('en-IN')}
+                  </strong>
+                </div>
+                <div style={{ border: '1px solid var(--admin-border)', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Today's Consumption</span>
+                  <strong style={{ fontSize: '1.5rem', fontWeight: 700, color: '#2563eb' }}>
+                    {dashboardStats?.todayConsumptionML ?? 0} ml
+                  </strong>
+                </div>
+                <div style={{ border: '1px solid var(--admin-border)', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>This Week's Consumption</span>
+                  <strong style={{ fontSize: '1.5rem', fontWeight: 700, color: '#4f46e5' }}>
+                    {dashboardStats?.weekConsumptionML ?? 0} ml
+                  </strong>
+                </div>
+              </div>
+            </div>
+
             {/* Performance Breakdowns Grid */}
             <div className="admin-grid-3">
               {/* Best Selling Perfumes */}
@@ -1523,9 +1687,9 @@ export default function AdminPage() {
             {/* Low Stock Alerts & Conversion Funnel */}
             <div className="admin-grid-2">
               {/* Low stock visual alarm widget */}
-              <div className={`admin-card ${inventoryItems.filter(i => i.status !== 'In Stock').length > 0 ? 'alarm-active' : ''}`} style={{ transition: 'all 0.3s ease' }}>
+              <div className={`admin-card ${bottles.filter(b => b.status === 'OPEN' && b.remainingML <= b.lowStockThresholdML).length > 0 ? 'alarm-active' : ''}`} style={{ transition: 'all 0.3s ease' }}>
                 <h3 className="admin-card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  {inventoryItems.filter(i => i.status !== 'In Stock').length > 0 && (
+                  {bottles.filter(b => b.status === 'OPEN' && b.remainingML <= b.lowStockThresholdML).length > 0 && (
                     <span className="alarm-pulsate-dot" style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444', boxShadow: '0 0 8px #ef4444', animation: 'pulse-alarm 1.2s infinite' }} />
                   )}
                   Inventory Low Stock Alarm
@@ -1535,44 +1699,53 @@ export default function AdminPage() {
                     <thead>
                       <tr>
                         <th>Product</th>
-                        <th>Size</th>
-                        <th>Stock</th>
-                        <th>Quick Restock</th>
+                        <th>Bottle</th>
+                        <th>Remaining</th>
+                        <th>Quick Top-up</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {inventoryItems.filter(i => i.status !== 'In Stock').slice(0, 4).map((item, idx) => (
-                        <tr key={idx} className={item.stock === 0 ? 'row-out-of-stock' : 'row-low-stock'}>
-                          <td style={{ fontWeight: 600 }}>{item.productName}</td>
-                          <td>{item.size}</td>
-                          <td style={{ fontFamily: 'monospace', color: item.stock === 0 ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }}>
-                            {item.stock === 0 ? 'OUT' : item.stock}
+                      {bottles.filter(b => b.status === 'OPEN' && b.remainingML <= b.lowStockThresholdML).slice(0, 4).map((item, idx) => (
+                        <tr key={idx} className="row-low-stock">
+                          <td style={{ fontWeight: 600 }}>{item.product?.name || 'Unknown'}</td>
+                          <td>{item.bottleLabel}</td>
+                          <td style={{ fontFamily: 'monospace', color: '#ea580c', fontWeight: 'bold' }}>
+                            {item.remainingML} / {item.bottleSizeML} ml
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: '0.35rem' }}>
                               <button 
-                                onClick={() => handleRestockInventory(item.sku, item.stock + 20)} 
+                                onClick={async () => {
+                                  try {
+                                    const headers = await getAdminHeaders();
+                                    const res = await fetch(`${API_BASE_URL}/api/admin/bottles/${item.id}`, {
+                                      method: 'PATCH',
+                                      headers,
+                                      body: JSON.stringify({ remainingML: item.bottleSizeML, notes: 'Quick fill to capacity from dashboard' })
+                                    });
+                                    if (res.ok) {
+                                      showToast('Bottle filled to capacity', 'success');
+                                      fetchCoreData();
+                                    } else {
+                                      showToast('Failed to fill bottle', 'error');
+                                    }
+                                  } catch (err) {
+                                    console.error(err);
+                                  }
+                                }} 
                                 className="admin-btn" 
                                 style={{ padding: '0.2rem 0.4rem', fontSize: '0.62rem', backgroundColor: '#10b981', borderColor: '#10b981', color: 'white', cursor: 'pointer' }}
-                                title="Instantly Restock +20 units"
+                                title="Top up to full capacity"
                               >
-                                +20
-                              </button>
-                              <button 
-                                onClick={() => handleRestockInventory(item.sku, item.stock + 50)} 
-                                className="admin-btn" 
-                                style={{ padding: '0.2rem 0.4rem', fontSize: '0.62rem', backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: 'white', cursor: 'pointer' }}
-                                title="Instantly Restock +50 units"
-                              >
-                                +50
+                                Fill to Full
                               </button>
                             </div>
                           </td>
                         </tr>
                       ))}
-                      {inventoryItems.filter(i => i.status !== 'In Stock').length === 0 && (
+                      {bottles.filter(b => b.status === 'OPEN' && b.remainingML <= b.lowStockThresholdML).length === 0 && (
                         <tr>
-                          <td colSpan="4" style={{ color: '#10b981', textAlign: 'center', padding: '1.25rem', fontWeight: 600 }}>All atomizers fully stocked.</td>
+                          <td colSpan="4" style={{ color: '#10b981', textAlign: 'center', padding: '1.25rem', fontWeight: 600 }}>All decant bottles fully stocked.</td>
                         </tr>
                       )}
                     </tbody>
@@ -1604,12 +1777,60 @@ export default function AdminPage() {
                     </text>
                   </svg>
                   <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '360px', marginTop: '0.75rem', fontSize: '0.68rem', color: '#6b7280' }}>
-                    <span>Add to Bag</span>
+                    <span>Bag</span>
                     <span>→</span>
-                    <span>Checkout ({Math.round(orders.length / (orders.length * 1.5 + 3) * 100) || 0}%)</span>
+                    <span>Checkout</span>
                     <span>→</span>
-                    <span>Purchase ({orders.length > 0 ? Math.round(orders.filter(o => o.status !== 'CANCELLED' && o.status !== 'PENDING').length / orders.length * 100) : 0}%)</span>
+                    <span>Purchase</span>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dashboard Row for Recent Inventory Activity */}
+            <div className="admin-grid-1" style={{ marginTop: '1.5rem' }}>
+              <div className="admin-card">
+                <h3 className="admin-card-title">Recent Inventory Activity Ledger</h3>
+                <div className="admin-table-wrapper" style={{ border: 'none' }}>
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>Fragrance / Scent Bottle</th>
+                        <th>Change</th>
+                        <th>Movement Type</th>
+                        <th>Operator / Reference</th>
+                        <th>Activity Log Note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentMovements.slice(0, 5).map((m, idx) => (
+                        <tr key={idx}>
+                          <td style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                            {new Date(m.date).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                          </td>
+                          <td style={{ fontWeight: 600 }}>
+                            {m.productName} <span style={{ fontWeight: 400, color: '#6b7280', fontSize: '0.75rem' }}>({m.bottleLabel})</span>
+                          </td>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 'bold', color: m.changeAmount > 0 ? '#10b981' : '#ef4444' }}>
+                            {m.changeAmount > 0 ? `+${m.changeAmount}` : m.changeAmount} ml
+                          </td>
+                          <td>
+                            <span className={`admin-badge ${m.reason === 'RESTOCK' ? 'success' : (m.reason === 'SALE' ? 'standard' : 'pending')}`}>
+                              {m.reason}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.75rem' }}>{m.adminUser}</td>
+                          <td style={{ fontSize: '0.75rem', color: '#4b5563' }}>{m.note || 'N/A'}</td>
+                        </tr>
+                      ))}
+                      {recentMovements.length === 0 && (
+                        <tr>
+                          <td colSpan="6" style={{ color: '#9ca3af', textAlign: 'center', padding: '1.5rem' }}>No inventory activity logged.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -1864,7 +2085,7 @@ export default function AdminPage() {
             <div className="admin-filters-bar">
               <input
                 type="text"
-                placeholder="Search SKU or product..."
+                placeholder="Search fragrance, label, supplier..."
                 className="admin-input admin-search-input"
                 value={inventorySearch}
                 onChange={(e) => setInventorySearch(e.target.value)}
@@ -1875,19 +2096,41 @@ export default function AdminPage() {
                 value={inventoryFilter}
                 onChange={(e) => setInventoryFilter(e.target.value)}
               >
-                <option value="ALL">All Stock Levels</option>
-                <option value="LOW_STOCK">Low Stock</option>
-                <option value="OUT_OF_STOCK">Out of Stock</option>
-                <option value="ACTIVE">Active Variants</option>
-                <option value="INACTIVE">Inactive Variants</option>
+                <option value="ALL">All Bottles</option>
+                <option value="LOW_STOCK">Low Stock Alerts</option>
+                <option value="OUT_OF_STOCK">Empty / Exhausted</option>
+                <option value="ACTIVE">Open & Active</option>
+                <option value="RETIRED">Retired / Decommissioned</option>
               </select>
 
-              <button onClick={handleBulkRestock} className="admin-btn">
-                Bulk Restock Low Stock (+20)
+              <button onClick={handleBulkRestock} className="admin-btn-secondary">
+                Bulk Top-up Low Stock
+              </button>
+
+              <button 
+                onClick={() => {
+                  setEditingBottle(null);
+                  setBottleForm({
+                    productId: products[0]?.id || '',
+                    bottleLabel: `Bottle #${(bottles.length + 1).toString().padStart(3, '0')}`,
+                    bottleSizeML: '100',
+                    remainingML: '100',
+                    lowStockThresholdML: '20',
+                    purchaseDate: new Date().toISOString().split('T')[0],
+                    supplier: '',
+                    batchNumber: '',
+                    costPrice: '',
+                    notes: ''
+                  });
+                  setShowBottleModal(true);
+                }} 
+                className="admin-btn"
+              >
+                + Register Scent Bottle
               </button>
 
               <button onClick={exportInventoryCsv} className="admin-btn-secondary" style={{ marginLeft: 'auto' }}>
-                Export Inventory Manifest (CSV)
+                Export Bottle Ledger (CSV)
               </button>
             </div>
 
@@ -1896,66 +2139,107 @@ export default function AdminPage() {
                 <thead>
                   <tr>
                     <th className="sortable" onClick={() => handleSortToggle('productName', inventorySort, setInventorySort)}>
-                      Product {renderSortIndicator('productName', inventorySort)}
+                      Fragrance {renderSortIndicator('productName', inventorySort)}
                     </th>
-                    <th className="sortable" onClick={() => handleSortToggle('sku', inventorySort, setInventorySort)}>
-                      SKU {renderSortIndicator('sku', inventorySort)}
-                    </th>
-                    <th>Size</th>
-                    <th className="sortable" onClick={() => handleSortToggle('stock', inventorySort, setInventorySort)}>
-                      Current Stock {renderSortIndicator('stock', inventorySort)}
-                    </th>
-                    <th className="sortable" onClick={() => handleSortToggle('lowStockThreshold', inventorySort, setInventorySort)}>
-                      Limit Threshold {renderSortIndicator('lowStockThreshold', inventorySort)}
-                    </th>
-                    <th className="sortable" onClick={() => handleSortToggle('status', inventorySort, setInventorySort)}>
-                      Status {renderSortIndicator('status', inventorySort)}
-                    </th>
-                    <th>Restock Recommendation</th>
-                    <th style={{ textAlign: 'right' }}>Restock Actions</th>
+                    <th>Bottle Info</th>
+                    <th>Remaining Liquid Level</th>
+                    <th>Status</th>
+                    <th>Computed Availability</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {inventoryItems.map((item, idx) => (
-                    <tr key={idx}>
-                      <td style={{ fontWeight: 'bold' }}>{item.productName}</td>
-                      <td style={{ fontFamily: 'monospace' }}>{item.sku}</td>
-                      <td>{item.size}</td>
-                      <td style={{ fontFamily: 'monospace', fontWeight: item.status !== 'In Stock' ? 'bold' : 'normal', color: item.status === 'Out of Stock' ? 'red' : (item.status === 'Low Stock' ? '#ea580c' : 'inherit') }}>
-                        {item.stock} units
-                      </td>
-                      <td style={{ fontFamily: 'monospace' }}>{item.lowStockThreshold} units</td>
-                      <td>
-                        <span className={`admin-badge ${item.status === 'In Stock' ? 'success' : (item.status === 'Low Stock' ? 'pending' : 'failed')}`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td>
-                        {item.status !== 'In Stock' ? (
-                          <span style={{ color: '#1d4ed8', fontWeight: 600 }}>Recommend adding +{20 - item.stock > 0 ? 20 - item.stock + 15 : 20} units</span>
-                        ) : (
-                          <span style={{ color: '#9ca3af' }}>Fully Stocked</span>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button
-                          onClick={() => {
-                            const newStock = parseInt(prompt(`Enter new stock count for SKU ${item.sku}:`, item.stock));
-                            if (!isNaN(newStock)) {
-                              handleRestockInventory(item.sku, newStock);
-                            }
-                          }}
-                          className="admin-btn"
-                          style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem' }}
-                        >
-                          Adjust Stock
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {inventoryItems.length === 0 && (
+                  {filteredBottles.map((item, idx) => {
+                    const percent = Math.min(100, Math.round((item.remainingML / item.bottleSizeML) * 100));
+                    let barColor = '#10b981';
+                    if (item.status === 'RETIRED') barColor = '#9ca3af';
+                    else if (percent <= 20) barColor = '#ef4444';
+                    else if (percent <= 40) barColor = '#f59e0b';
+
+                    return (
+                      <tr key={item.id || idx}>
+                        <td>
+                          <div style={{ fontWeight: 'bold' }}>{item.product?.name || 'Unknown Scent'}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>ID: {item.id}</div>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600, color: '#1c1917' }}>{item.bottleLabel}</div>
+                          {item.batchNumber && <div style={{ fontSize: '0.68rem', color: '#444' }}>Batch: {item.batchNumber}</div>}
+                          {item.supplier && <div style={{ fontSize: '0.68rem', color: '#666' }}>Supplier: {item.supplier}</div>}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '220px' }}>
+                            <div style={{ flexGrow: 1, height: '10px', backgroundColor: '#e5e7eb', borderRadius: '5px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.05)' }}>
+                              <div style={{ width: `${percent}%`, height: '100%', backgroundColor: barColor, transition: 'width 0.4s ease' }} />
+                            </div>
+                            <span style={{ fontSize: '0.72rem', fontFamily: 'monospace', fontWeight: 600, minWidth: '95px', textAlign: 'right' }}>
+                              {item.remainingML} / {item.bottleSizeML} ml ({percent}%)
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`admin-badge ${item.status === 'OPEN' ? 'success' : (item.status === 'EMPTY' ? 'failed' : 'standard')}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td>
+                          {item.status === 'RETIRED' ? (
+                            <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Retired</span>
+                          ) : (
+                            <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', maxWidth: '200px' }}>
+                              <span className="admin-badge standard" style={{ fontSize: '0.68rem' }}>5ml: {Math.floor(item.remainingML / 5)}</span>
+                              <span className="admin-badge standard" style={{ fontSize: '0.68rem' }}>10ml: {Math.floor(item.remainingML / 10)}</span>
+                              <span className="admin-badge standard" style={{ fontSize: '0.68rem' }}>20ml: {Math.floor(item.remainingML / 20)}</span>
+                              <span className="admin-badge standard" style={{ fontSize: '0.68rem' }}>30ml: {Math.floor(item.remainingML / 30)}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            onClick={() => {
+                              setEditingBottle(item);
+                              setBottleForm({
+                                productId: item.productId,
+                                bottleLabel: item.bottleLabel,
+                                bottleSizeML: item.bottleSizeML.toString(),
+                                remainingML: item.remainingML.toString(),
+                                lowStockThresholdML: item.lowStockThresholdML.toString(),
+                                purchaseDate: item.purchaseDate ? item.purchaseDate.split('T')[0] : '',
+                                supplier: item.supplier || '',
+                                batchNumber: item.batchNumber || '',
+                                costPrice: item.costPrice ? item.costPrice.toString() : '',
+                                notes: item.notes || ''
+                              });
+                              setShowBottleModal(true);
+                            }}
+                            className="admin-btn"
+                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.68rem', marginRight: '0.25rem' }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleViewBottleMovements(item)}
+                            className="admin-btn-secondary"
+                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.68rem', marginRight: '0.25rem' }}
+                          >
+                            Logs
+                          </button>
+                          {item.status !== 'RETIRED' && (
+                            <button
+                              onClick={() => handleRetireBottle(item.id)}
+                              className="admin-btn-danger"
+                              style={{ padding: '0.2rem 0.4rem', fontSize: '0.68rem' }}
+                            >
+                              Retire
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredBottles.length === 0 && (
                     <tr>
-                      <td colSpan="8" style={{ color: '#9ca3af', textAlign: 'center', padding: '2rem' }}>No variants found matching selection.</td>
+                      <td colSpan="6" style={{ color: '#9ca3af', textAlign: 'center', padding: '2.5rem' }}>No inventory bottles registered. Click "+ Register Scent Bottle" to get started.</td>
                     </tr>
                   )}
                 </tbody>
@@ -3056,6 +3340,211 @@ export default function AdminPage() {
             </div>
 
             <button onClick={() => setSelectedCustomer(null)} className="admin-btn" style={{ marginTop: 'auto' }}>Close Customer History</button>
+          </div>
+        </div>
+      )}
+
+      {/* Bottle Create/Edit Modal Dialog */}
+      {showBottleModal && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-container" style={{ maxWidth: '28rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--admin-border)' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--admin-text-primary)', margin: 0 }}>
+                {editingBottle ? `Edit Scent Bottle Details: ${editingBottle.bottleLabel}` : 'Register New Inventory Bottle'}
+              </h3>
+              <button onClick={() => { setShowBottleModal(false); setEditingBottle(null); }} className="admin-drawer-close">&times;</button>
+            </div>
+
+            <form onSubmit={editingBottle ? handleUpdateBottle : handleRegisterBottle} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div className="admin-form-group">
+                <label className="admin-label">Target Perfume Product</label>
+                <select
+                  className="admin-select"
+                  value={bottleForm.productId}
+                  onChange={(e) => setBottleForm({ ...bottleForm, productId: e.target.value })}
+                  disabled={!!editingBottle}
+                  required
+                >
+                  <option value="" disabled>Select a product...</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="admin-form-group">
+                <label className="admin-label">Bottle Label identifier</label>
+                <input
+                  type="text"
+                  required
+                  className="admin-input"
+                  placeholder="e.g. JPG Elixir Bottle #001"
+                  value={bottleForm.bottleLabel}
+                  onChange={(e) => setBottleForm({ ...bottleForm, bottleLabel: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+                <div className="admin-form-group">
+                  <label className="admin-label">Size (ml)</label>
+                  <input
+                    type="number"
+                    required
+                    className="admin-input"
+                    placeholder="100"
+                    value={bottleForm.bottleSizeML}
+                    onChange={(e) => setBottleForm({ ...bottleForm, bottleSizeML: e.target.value })}
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Remaining (ml)</label>
+                  <input
+                    type="number"
+                    required
+                    className="admin-input"
+                    placeholder="100"
+                    value={bottleForm.remainingML}
+                    onChange={(e) => setBottleForm({ ...bottleForm, remainingML: e.target.value })}
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Low Stock (ml)</label>
+                  <input
+                    type="number"
+                    required
+                    className="admin-input"
+                    placeholder="20"
+                    value={bottleForm.lowStockThresholdML}
+                    onChange={(e) => setBottleForm({ ...bottleForm, lowStockThresholdML: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div className="admin-form-group">
+                  <label className="admin-label">Purchase Date</label>
+                  <input
+                    type="date"
+                    className="admin-input"
+                    value={bottleForm.purchaseDate}
+                    onChange={(e) => setBottleForm({ ...bottleForm, purchaseDate: e.target.value })}
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Cost Price (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="admin-input"
+                    placeholder="1500"
+                    value={bottleForm.costPrice}
+                    onChange={(e) => setBottleForm({ ...bottleForm, costPrice: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div className="admin-form-group">
+                  <label className="admin-label">Supplier Source</label>
+                  <input
+                    type="text"
+                    className="admin-input"
+                    placeholder="e.g. Belvish"
+                    value={bottleForm.supplier}
+                    onChange={(e) => setBottleForm({ ...bottleForm, supplier: e.target.value })}
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Batch / Lot Code</label>
+                  <input
+                    type="text"
+                    className="admin-input"
+                    placeholder="e.g. 3012M"
+                    value={bottleForm.batchNumber}
+                    onChange={(e) => setBottleForm({ ...bottleForm, batchNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="admin-form-group">
+                <label className="admin-label">Adjustment Reason / Notes</label>
+                <textarea
+                  className="admin-input"
+                  style={{ height: '3.5rem', resize: 'none' }}
+                  placeholder="Notes on supplier, condition, or manual adjustment details..."
+                  value={bottleForm.notes}
+                  onChange={(e) => setBottleForm({ ...bottleForm, notes: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <button type="button" onClick={() => { setShowBottleModal(false); setEditingBottle(null); }} className="admin-btn-secondary" style={{ flexGrow: 1 }}>Cancel</button>
+                <button type="submit" className="admin-btn" style={{ flexGrow: 1 }}>
+                  {editingBottle ? 'Save Details' : 'Register Bottle'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bottle movements history modal */}
+      {selectedBottleMovements && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-container" style={{ maxWidth: '35rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--admin-border)' }}>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--admin-text-primary)', margin: 0 }}>
+                  Audit Trail: {selectedBottleMovements.bottle.bottleLabel}
+                </h3>
+                <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                  {selectedBottleMovements.bottle.product?.name || 'Unknown Scent'}
+                </span>
+              </div>
+              <button onClick={() => setSelectedBottleMovements(null)} className="admin-drawer-close">&times;</button>
+            </div>
+
+            <div className="admin-table-wrapper" style={{ maxHeight: '25rem', overflowY: 'auto' }}>
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Change</th>
+                    <th>Type</th>
+                    <th>Operator / Ref</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedBottleMovements.movements.map((m, idx) => (
+                    <tr key={m.id || idx}>
+                      <td style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
+                        {new Date(m.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </td>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 'bold', color: m.quantityML > 0 ? '#10b981' : '#ef4444' }}>
+                        {m.quantityML > 0 ? `+${m.quantityML}` : m.quantityML} ml
+                      </td>
+                      <td>
+                        <span className={`admin-badge ${m.type === 'RESTOCK' ? 'success' : (m.type === 'SALE' ? 'standard' : 'pending')}`}>
+                          {m.type}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.72rem' }}>
+                        {m.adminId || (m.orderId ? `Order #${m.orderId.slice(-8).toUpperCase()}` : 'System Autopilot')}
+                      </td>
+                      <td style={{ fontSize: '0.72rem', color: '#4b5563' }}>{m.note || 'N/A'}</td>
+                    </tr>
+                  ))}
+                  {selectedBottleMovements.movements.length === 0 && (
+                    <tr>
+                      <td colSpan="5" style={{ color: '#9ca3af', textAlign: 'center', padding: '1.5rem' }}>No activity records found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <button onClick={() => setSelectedBottleMovements(null)} className="admin-btn" style={{ marginTop: '1rem', width: '100%' }}>Close Audit Trail</button>
           </div>
         </div>
       )}
