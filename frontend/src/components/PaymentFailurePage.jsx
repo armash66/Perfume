@@ -10,6 +10,7 @@ export default function PaymentFailurePage() {
 
   const params = getHashParams();
   const orderId = params.get('orderId');
+  const orderRef = params.get('orderRef') || params.get('orderReference');
   const reason = params.get('reason') || 'failed'; // failed, cancelled, verification_failed
 
   useEffect(() => {
@@ -70,7 +71,7 @@ export default function PaymentFailurePage() {
   const content = getContent();
 
   return (
-    <div className="min-h-screen bg-[#F7F3ED] font-body text-[#1C1B18] pb-24 pt-12 select-none px-4 flex items-center justify-center">
+    <div className="min-h-screen bg-[#F7F3ED] font-body text-[#1C1B18] pb-24 pt-12 select-none px-4">
       <div className="max-w-2xl mx-auto w-full">
 
         {/* Failure Icon & Header */}
@@ -100,10 +101,12 @@ export default function PaymentFailurePage() {
             </p>
           </div>
 
-          {orderId && (
+          {(orderRef || orderId) && (
             <div className="px-8 py-4 border-b border-black/5 flex justify-between items-center text-[0.62rem] font-bold tracking-wider text-black/40 uppercase">
               <span>Reference Order</span>
-              <span className="font-mono text-xs text-[#1C1B18]">#{orderId.slice(-8).toUpperCase()}</span>
+              <span className="font-mono text-xs text-[#1C1B18] font-bold">
+                {orderRef ? `#${orderRef.toUpperCase()}` : `#${orderId.slice(-8).toUpperCase()}`}
+              </span>
             </div>
           )}
 

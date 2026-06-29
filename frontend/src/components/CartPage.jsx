@@ -607,13 +607,13 @@ export default function CartPage({ onBackToShop, products = [] }) {
                   const errData = await verifyRes.json();
                   showToast(errData.error || 'Payment verification failed.', 'error');
                   setCheckoutState('FAILURE');
-                  window.location.hash = `payment-failure?orderId=${orderData.id}&reason=failed`;
+                  window.location.hash = `payment-failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=failed`;
                 }
               } catch (verifyErr) {
                 console.error('Error verifying payment:', verifyErr);
                 showToast('Verification error. Please contact support with Order ID: ' + orderData.id, 'error');
                 setCheckoutState('FAILURE');
-                window.location.hash = `payment-failure?orderId=${orderData.id}&reason=failed`;
+                window.location.hash = `payment-failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=failed`;
               }
             },
             prefill: {
@@ -641,7 +641,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
                 } catch (failErr) {
                   console.error('Failed to notify payment failure:', failErr);
                 } finally {
-                  window.location.hash = `payment-failure?orderId=${orderData.id}&reason=cancelled`;
+                  window.location.hash = `payment-failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=cancelled`;
                 }
               }
             }
@@ -711,7 +711,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
             } catch (failErr) {
               console.error('Failed to notify payment failure:', failErr);
             } finally {
-              window.location.hash = `payment-failure?orderId=${orderData.id}&reason=failed`;
+              window.location.hash = `payment-failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=failed`;
             }
           });
           rzp.open();
