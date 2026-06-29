@@ -3249,6 +3249,36 @@ app.listen(PORT, async () => {
   
   // Run startup database and schema verification
   await verifyDatabaseSchema();
+
+  // Sync Razorpay keys from environment variables to StoreSetting database table on startup
+  try {
+    const keyId = cleanEnvVar(process.env.RAZORPAY_KEY_ID);
+    const keySecret = cleanEnvVar(process.env.RAZORPAY_KEY_SECRET);
+    if (keyId) {
+      await prisma.storeSetting.upsert({
+        where: { id: 'default' },
+        update: {
+          razorpayKey: keyId,
+          razorpaySecret: keySecret || undefined
+        },
+        create: {
+          id: 'default',
+          storeName: 'Decant Atelier',
+          supportEmail: 'concierge@decantatelier.com',
+          supportPhone: '+91 97681 88453',
+          codEnabled: true,
+          shippingCharges: 199,
+          freeShippingThreshold: 1999,
+          razorpayKey: keyId,
+          razorpaySecret: keySecret
+        }
+      });
+      console.log('Successfully synchronized Razorpay API credentials to database StoreSetting table.');
+    }
+  } catch (syncErr) {
+    console.error('Failed to sync Razorpay API credentials to database StoreSetting table:', syncErr);
+  }
+
   
   console.log('\n====== CLERK AUTH PROCESS CONFIGURATION ======');
   console.log('CLERK_SECRET_KEY Present:', !!process.env.CLERK_SECRET_KEY);
