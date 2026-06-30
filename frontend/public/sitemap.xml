@@ -8,7 +8,7 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#shop</loc>
+    <loc>https://decantatelier.in/shop</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
@@ -17,31 +17,31 @@
 
   <!-- Static Policy / Information Pages -->
   <url>
-    <loc>https://decantatelier.in/#about</loc>
+    <loc>https://decantatelier.in/about</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#shipping</loc>
+    <loc>https://decantatelier.in/shipping</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#returns</loc>
+    <loc>https://decantatelier.in/refund</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#terms</loc>
+    <loc>https://decantatelier.in/terms</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#privacy</loc>
+    <loc>https://decantatelier.in/privacy</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
@@ -49,145 +49,145 @@
 
   <!-- Live Catalog Products (24 Approved SKUs) -->
   <url>
-    <loc>https://decantatelier.in/#product/jpg-le-male-elixir</loc>
+    <loc>https://decantatelier.in/product/jpg-le-male-elixir</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/jpg-le-beau-paradise-garden</loc>
+    <loc>https://decantatelier.in/product/jpg-le-beau-paradise-garden</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/azzaro-the-most-wanted</loc>
+    <loc>https://decantatelier.in/product/azzaro-the-most-wanted</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/armani-stronger-with-you-intensely</loc>
+    <loc>https://decantatelier.in/product/armani-stronger-with-you-intensely</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/valentino-uomo-born-in-roma-coral-fantasy</loc>
+    <loc>https://decantatelier.in/product/valentino-uomo-born-in-roma-coral-fantasy</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/tom-ford-ombre-leather-edp</loc>
+    <loc>https://decantatelier.in/product/tom-ford-ombre-leather-edp</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/bleu-de-chanel-edp</loc>
+    <loc>https://decantatelier.in/product/bleu-de-chanel-edp</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/dior-sauvage-edp</loc>
+    <loc>https://decantatelier.in/product/dior-sauvage-edp</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/rasasi-hawas</loc>
+    <loc>https://decantatelier.in/product/rasasi-hawas</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/rasasi-hawas-ice</loc>
+    <loc>https://decantatelier.in/product/rasasi-hawas-ice</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/rasasi-hawas-london</loc>
+    <loc>https://decantatelier.in/product/rasasi-hawas-london</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/naseem-asmira-for-women</loc>
+    <loc>https://decantatelier.in/product/naseem-asmira-for-women</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/afnan-9pm</loc>
+    <loc>https://decantatelier.in/product/afnan-9pm</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/afnan-9pm-night-out</loc>
+    <loc>https://decantatelier.in/product/afnan-9pm-night-out</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/afnan-supremacy-collectors-edition</loc>
+    <loc>https://decantatelier.in/product/afnan-supremacy-collectors-edition</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/lattafa-khamrah</loc>
+    <loc>https://decantatelier.in/product/lattafa-khamrah</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/lattafa-khamrah-qahwa</loc>
+    <loc>https://decantatelier.in/product/lattafa-khamrah-qahwa</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/lattafa-yara-for-women</loc>
+    <loc>https://decantatelier.in/product/lattafa-yara-for-women</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/lattafa-eclaire</loc>
+    <loc>https://decantatelier.in/product/lattafa-eclaire</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/french-avenue-liquid-brun</loc>
+    <loc>https://decantatelier.in/product/french-avenue-liquid-brun</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/club-de-nuit-intense-man-pure-parfum</loc>
+    <loc>https://decantatelier.in/product/club-de-nuit-intense-man-pure-parfum</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/kaaf-ahmed-al-maghribi</loc>
+    <loc>https://decantatelier.in/product/kaaf-ahmed-al-maghribi</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/marj-ahmed-al-maghribi</loc>
+    <loc>https://decantatelier.in/product/marj-ahmed-al-maghribi</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://decantatelier.in/#product/ahmed-al-maghribi-rose-noir</loc>
+    <loc>https://decantatelier.in/product/ahmed-al-maghribi-rose-noir</loc>
     <lastmod>2026-06-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

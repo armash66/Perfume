@@ -1,6 +1,8 @@
+import { useNavigate } from 'react-router-dom';
 import './Gifting.css';
 
 export default function Gifting({ onSelectCategory, onNavigate }) {
+  const navigate = useNavigate();
   return (
     <section id="gifting" className="gift-section">
       <div className="gift-container">
@@ -21,13 +23,7 @@ export default function Gifting({ onSelectCategory, onNavigate }) {
             className="gift-card gift-him cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
-              if (onSelectCategory) onSelectCategory('him');
-              if (onNavigate) onNavigate('shop');
-              window.location.hash = 'shop?category=him';
-              setTimeout(() => {
-                const element = document.getElementById('collection');
-                if (element) element.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
+              navigate('/shop?category=him');
             }}
           >
             <div className="gift-card-bg">
@@ -44,13 +40,7 @@ export default function Gifting({ onSelectCategory, onNavigate }) {
             className="gift-card gift-her cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
-              if (onSelectCategory) onSelectCategory('her');
-              if (onNavigate) onNavigate('shop');
-              window.location.hash = 'shop?category=her';
-              setTimeout(() => {
-                const element = document.getElementById('collection');
-                if (element) element.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
+              navigate('/shop?category=her');
             }}
           >
             <div className="gift-card-bg">

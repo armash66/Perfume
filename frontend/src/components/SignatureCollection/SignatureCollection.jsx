@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { collectionsData } from './CollectionData';
 import { addToCart, updateQuantity } from '../../utils/cartHelper';
@@ -89,28 +91,23 @@ export default function SignatureCollection({
   collectionsError = ''
 }) {
   const { isSignedIn, getToken } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('recommended');
   const [isSortOpen, setIsSortOpen] = useState(false);
 
-  // Sync URL search query parameters
+  // Sync URL search query parameters from React Router searchParams
   useEffect(() => {
-    const handleUrlParams = () => {
-      const fullHash = window.location.hash.replace('#', '');
-      const params = new URLSearchParams(fullHash.split('?')[1] || '');
-      const searchParam = params.get('search');
-      if (searchParam) {
-        setSearchQuery(decodeURIComponent(searchParam));
-      } else {
-        setSearchQuery('');
-      }
-    };
-    handleUrlParams();
-    window.addEventListener('hashchange', handleUrlParams);
-    return () => window.removeEventListener('hashchange', handleUrlParams);
-  }, []);
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      setSearchQuery(decodeURIComponent(searchParam));
+    } else {
+      setSearchQuery('');
+    }
+  }, [searchParams]);
 
   const [wishlist, setWishlist] = useState(() => WishlistStore.getState());
   const [cartItems, setCartItems] = useState(() => CartStore.getState());
@@ -195,7 +192,7 @@ export default function SignatureCollection({
       const token = isSignedIn ? await getToken() : null;
       const result = await addToCart(item, sizeOption, 1, token);
       if (result && result.success) {
-        window.location.hash = 'cart';
+        navigate('/cart');
       }
     } catch (err) {
       console.error(err);
@@ -231,15 +228,15 @@ export default function SignatureCollection({
     } else {
       setLocalCategory(categorySlug);
     }
-    window.location.hash = `shop?category=${categorySlug}`;
-  }, [onSelectCategory]);
+    navigate(`/shop?category=${categorySlug}`);
+  }, [onSelectCategory, navigate]);
   const activeCollection = useMemo(
     () => collections.find(collection => collection.slug === currentCategory),
     [collections, currentCategory]
   );
 
   const handleProductClick = (id) => {
-    window.location.hash = `product-${id}`;
+    navigate(`/product/${id}`);
   };
 
   // Intercept category mapping for special items (e.g. from navbar clicks)
@@ -850,7 +847,7 @@ export default function SignatureCollection({
               Explore our boutique decants and curate your personal fragrance wishlist.
             </p>
             <button
-              onClick={() => { window.location.hash = 'collection'; }}
+              onClick={() => { navigate('/shop'); }}
               onMouseEnter={() => setIsWishlistCtaHovered(true)}
               onMouseLeave={() => setIsWishlistCtaHovered(false)}
               className="px-6 py-3 rounded-none text-[0.7rem] font-bold tracking-widest uppercase transition-all duration-300 cursor-pointer shadow-sm"
@@ -1062,7 +1059,7 @@ export default function SignatureCollection({
                         const result = await addToCart(selectedItem, sizeOption, 1, token);
                         if (result && result.success) {
                           closeQuickView();
-                          window.location.hash = 'cart';
+                          navigate('/cart');
                         }
                       } catch (err) {
                         console.error(err);

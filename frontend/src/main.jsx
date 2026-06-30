@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import { ClerkProvider } from '@clerk/clerk-react'
 import './index.css'
 import App from './App.jsx'
@@ -14,8 +15,10 @@ const clerkKey = PUBLISHABLE_KEY || 'pk_test_YWN0aXZlLW1hcm1vc2V0LTkxLmNsZXJrLmF
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ClerkProvider publishableKey={clerkKey}>
-      <App />
-    </ClerkProvider>
+    <BrowserRouter>
+      <ClerkProvider publishableKey={clerkKey}>
+        <App />
+      </ClerkProvider>
+    </BrowserRouter>
   </StrictMode>,
 )

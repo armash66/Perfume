@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth, useUser, SignInButton, SignOutButton } from '@clerk/clerk-react';
 import { showToast } from '../utils/toast.js';
 import { clearCart } from '../utils/cartHelper.js';
@@ -7,6 +8,7 @@ import './AdminPage.css';
 import { API_BASE_URL, sanitizeImageUrl } from '../utils/config.js';
 
 export default function AdminPage() {
+  const navigate = useNavigate();
   const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
   const { isLoaded: userLoaded } = useUser();
 
@@ -1372,7 +1374,7 @@ export default function AdminPage() {
           </li>
         </ul>
         <div className="admin-sidebar-footer">
-          <button onClick={() => { window.location.hash = ''; }} className="admin-btn-secondary">
+          <button onClick={() => { navigate('/'); }} className="admin-btn-secondary">
             Storefront
           </button>
           <SignOutButton redirectUrl="/">

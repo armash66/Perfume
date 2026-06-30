@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL, sanitizeImageUrl } from '../utils/config.js';
 
 const CTA_DESTINATIONS = {
-  shop: '#shop',
-  'best-sellers': '#shop?category=best-sellers',
-  decants: '#shop?category=decants',
-  'gift-sets': '#shop?category=gift-sets',
-  collections: '#collection',
+  shop: '/shop',
+  'best-sellers': '/shop?category=best-sellers',
+  decants: '/shop?category=decants',
+  'gift-sets': '/shop?category=gift-sets',
+  collections: '/shop',
 };
 
 function shouldShowPopup(displayMode) {
@@ -29,6 +30,7 @@ function markPopupShown(displayMode) {
 }
 
 export default function DailyOfferPopup() {
+  const navigate = useNavigate();
   const [show, setShow] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
   const [campaign, setCampaign] = useState(null);
@@ -79,7 +81,11 @@ export default function DailyOfferPopup() {
     if (campaign) markPopupShown(campaign.displayMode || 'once_per_day');
     setShow(false);
     const dest = campaign?.ctaDestination || 'shop';
-    window.location.hash = CTA_DESTINATIONS[dest]?.replace('#', '') || dest;
+    let path = CTA_DESTINATIONS[dest] || dest;
+    if (path.startsWith('#')) {
+      path = '/' + path.replace('#', '');
+    }
+    navigate(path);
   };
 
   if (!show || !campaign) return null;

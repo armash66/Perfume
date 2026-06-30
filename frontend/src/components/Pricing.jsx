@@ -1,9 +1,11 @@
+import { useNavigate } from 'react-router-dom';
 import './Pricing.css';
 
 export default function Pricing() {
+  const navigate = useNavigate();
   const handleCtaClick = (e) => {
     e.preventDefault();
-    window.location.hash = 'shop?category=decants';
+    navigate('/shop?category=decants');
   };
 
   return (
@@ -48,7 +50,7 @@ export default function Pricing() {
         {/* Footer info & CTA */}
         <div className="pricing-footer">
           <p>Transparent pricing so you can explore more scents without paying inflated margins.</p>
-          <a href="#shop?category=decants" onClick={handleCtaClick} className="pricing-cta">
+          <a href="/shop?category=decants" onClick={handleCtaClick} className="pricing-cta">
             EXPLORE FAIR-PRICE DECANTS &nbsp;→
           </a>
         </div>

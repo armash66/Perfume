@@ -1,17 +1,12 @@
 import { useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 export default function PaymentFailurePage() {
-  // Extract hash query parameters
-  const getHashParams = () => {
-    const fullHash = window.location.hash.replace('#', '');
-    const queryString = fullHash.split('?')[1] || '';
-    return new URLSearchParams(queryString);
-  };
-
-  const params = getHashParams();
-  const orderId = params.get('orderId');
-  const orderRef = params.get('orderRef') || params.get('orderReference');
-  const reason = params.get('reason') || 'failed'; // failed, cancelled, verification_failed
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const orderId = searchParams.get('orderId');
+  const orderRef = searchParams.get('orderRef') || searchParams.get('orderReference');
+  const reason = searchParams.get('reason') || 'failed'; // failed, cancelled, verification_failed
 
   useEffect(() => {
     // Dispatch payment_failed analytics event
@@ -123,19 +118,19 @@ export default function PaymentFailurePage() {
         {/* CTAs */}
         <div className="flex flex-col sm:flex-row gap-3">
           <button
-            onClick={() => { window.location.hash = 'cart'; }}
+            onClick={() => { navigate('/cart'); }}
             className="flex-1 btn-lux-primary"
           >
             Retry Secure Payment
           </button>
           <button
-            onClick={() => { window.location.hash = 'cart'; }}
+            onClick={() => { navigate('/cart'); }}
             className="flex-1 btn-lux-secondary"
           >
             Return to Bag
           </button>
           <button
-            onClick={() => { window.location.hash = 'shop'; }}
+            onClick={() => { navigate('/shop'); }}
             className="flex-1 btn-lux-secondary"
           >
             Back to Shop

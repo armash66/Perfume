@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth, useUser, SignInButton } from '@clerk/clerk-react';
 import { getCart, updateQuantity, removeFromCart, clearCart, mergeCartToDb } from '../utils/cartHelper';
 import { showToast } from '../utils/toast';
@@ -32,6 +33,7 @@ const loadRazorpayScript = () => {
 import { CartStore, WishlistStore } from '../utils/store.js';
 
 export default function CartPage({ onBackToShop, products = [] }) {
+  const navigate = useNavigate();
   const { isSignedIn, getToken } = useAuth();
   const { user } = useUser();
   const [cartItems, setCartItems] = useState([]);
@@ -400,13 +402,13 @@ export default function CartPage({ onBackToShop, products = [] }) {
     if (onBackToShop) {
       onBackToShop();
     } else {
-      window.location.hash = 'shop';
+      navigate('/shop');
     }
   };
 
   // Navigate to Categories page and scroll to "Shop by Category" section
   const handleExploreCollection = () => {
-    window.location.hash = 'categories';
+    navigate('/categories');
 
     // Wait for the categories page to mount and render, then scroll to the section.
     // Using requestAnimationFrame + a small timeout ensures the DOM is ready.
@@ -601,18 +603,18 @@ export default function CartPage({ onBackToShop, products = [] }) {
                 });
                 if (verifyRes.ok) {
                   setCheckoutState('SUCCESS');
-                  window.location.hash = `payment-success?orderId=${orderData.id}&paymentId=${response.razorpay_payment_id}`;
+                  navigate(`/payment/success?orderId=${orderData.id}&paymentId=${response.razorpay_payment_id}`);
                 } else {
                   const errData = await verifyRes.json();
                   showToast(errData.error || 'Payment verification failed.', 'error');
                   setCheckoutState('FAILURE');
-                  window.location.hash = `payment-failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=failed`;
+                  navigate(`/payment/failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=failed`);
                 }
               } catch (verifyErr) {
                 console.error('Error verifying payment:', verifyErr);
                 showToast('Verification error. Please contact support with Order ID: ' + orderData.id, 'error');
                 setCheckoutState('FAILURE');
-                window.location.hash = `payment-failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=failed`;
+                navigate(`/payment/failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=failed`);
               }
             },
             prefill: {
@@ -640,7 +642,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
                 } catch (failErr) {
                   console.error('Failed to notify payment failure:', failErr);
                 } finally {
-                  window.location.hash = `payment-failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=cancelled`;
+                  navigate(`/payment/failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=cancelled`);
                 }
               }
             }
@@ -710,7 +712,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
             } catch (failErr) {
               console.error('Failed to notify payment failure:', failErr);
             } finally {
-              window.location.hash = `payment-failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=failed`;
+              navigate(`/payment/failure?orderId=${orderData.id}&orderRef=${orderData.orderReference || ''}&reason=failed`);
             }
           });
           rzp.open();
@@ -759,7 +761,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button 
-              onClick={() => { window.location.hash = 'profile'; }} 
+              onClick={() => { navigate('/profile'); }} 
               className="py-3 px-6 bg-[#1C1B18] text-[#FEFCF9] hover:bg-[#8B672F] text-[0.68rem] font-bold tracking-widest uppercase transition-all duration-300"
               style={{ color: '#FEFCF9' }}
             >

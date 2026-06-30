@@ -1,4 +1,5 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, useMemo } from 'react';
+import { Routes, Route, useLocation, useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 const SignatureCollection = lazy(() => import('./components/SignatureCollection'));
@@ -17,56 +18,61 @@ const AdminPage = lazy(() => import('./components/AdminPage'));
 const GiftingPage = lazy(() => import('./components/GiftingPage'));
 const PaymentSuccessPage = lazy(() => import('./components/PaymentSuccessPage'));
 const PaymentFailurePage = lazy(() => import('./components/PaymentFailurePage'));
+const NotFoundPage = lazy(() => import('./components/NotFoundPage'));
 import MiniBag from './components/MiniBag';
+import HashRedirectCompatibility from './components/HashRedirectCompatibility';
+import ScrollRestoration from './components/ScrollRestoration';
 import { API_BASE_URL } from './utils/config.js';
 import { clearCart } from './utils/cartHelper.js';
 import { CartStore } from './utils/store.js';
 import SEO from './components/SEO';
 
 
+/**
+ * Wrapper component that resolves `activePage` and `activeCategory` from the
+ * current React Router location, so the legacy prop-driven components
+ * (SEO, Navbar, Footer, DailyOfferPopup) continue to work without changes
+ * to their internal logic yet.
+ */
 function App() {
-  // TODO: V2 SEO & Routing Roadmap:
-  // 1. Replace client-side hash routing (#) with React Router BrowserRouter for real URLs (/shop, /product/slug, etc.).
-  // 2. Generate sitemap.xml dynamically from PostgreSQL backend.
-  // 3. Generate JSON-LD schema dynamically.
-  // 4. Generate OG preview images automatically using dynamic HTML-to-image canvas.
-  // 5. Implement Google Merchant Center catalog feed integration.
-  // 6. Implement FAQ Schema.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-
-  const getPageFromHash = () => {
-    const fullHash = window.location.hash.replace('#', '');
-    const hash = fullHash.split('?')[0];
-    const policies = ['authenticity', 'about', 'shipping', 'returns', 'terms', 'privacy'];
-
-    if (hash === 'wishlist') return 'wishlist';
-    if (policies.includes(hash)) return 'policies';
-    if (hash === 'profile') return 'profile';
-    if (hash === 'admin') return 'admin';
-    if (hash === 'shop' || hash === 'collection') return 'shop';
-    if (hash === 'cart') return 'cart';
-    if (hash === 'categories') return 'categories';
-    if (hash === 'gifting') return 'gifting';
-    if (hash.startsWith('product-')) return 'product';
-    if (hash === 'payment-success') return 'payment-success';
-    if (hash === 'payment-failure') return 'payment-failure';
-
+  // ---------------------------------------------------------------------------
+  // Derive activePage & activeCategory from the URL pathname + search params
+  // ---------------------------------------------------------------------------
+  const activePage = useMemo(() => {
+    const path = location.pathname;
+    if (path === '/') return 'home';
+    if (path === '/shop') return 'shop';
+    if (path === '/wishlist') return 'wishlist';
+    if (path === '/cart') return 'cart';
+    if (path === '/categories') return 'categories';
+    if (path === '/gifting') return 'gifting';
+    if (path === '/profile') return 'profile';
+    if (path === '/admin') return 'admin';
+    if (path.startsWith('/product/')) return 'product';
+    if (path === '/payment/success') return 'payment-success';
+    if (path === '/payment/failure') return 'payment-failure';
+    // Policy pages
+    const policyPages = ['about', 'authenticity', 'shipping', 'refund', 'terms', 'privacy'];
+    const segment = path.replace('/', '');
+    if (policyPages.includes(segment)) return 'policies';
     return 'home';
-  };
+  }, [location.pathname]);
 
-  const getCategoryFromHash = () => {
-    const fullHash = window.location.hash.replace('#', '');
-    const hash = fullHash.split('?')[0];
-    if (hash === 'wishlist') return 'wishlist';
-    if (hash === 'shop' || hash === 'collection') {
-      const params = new URLSearchParams(fullHash.split('?')[1] || '');
-      return params.get('category') || 'all';
+  const activeCategory = useMemo(() => {
+    if (location.pathname === '/wishlist') return 'wishlist';
+    if (location.pathname === '/shop') {
+      return searchParams.get('category') || 'all';
     }
     return 'all';
-  };
+  }, [location.pathname, searchParams]);
 
-  const [activePage, setActivePage] = useState(getPageFromHash);
-  const [activeCategory, setActiveCategory] = useState(getCategoryFromHash);
+  // ---------------------------------------------------------------------------
+  // Product catalog state (unchanged from original)
+  // ---------------------------------------------------------------------------
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -137,57 +143,88 @@ function App() {
     loadProducts();
   }, []);
 
-  // Update selected product based on URL hash changes
+  // Resolve selected product from URL params when on a product page
   useEffect(() => {
-    const handleHashChange = () => {
-      const page = getPageFromHash();
-      setActivePage(page);
-      setActiveCategory(getCategoryFromHash());
-
-      const fullHash = window.location.hash.replace('#', '');
-      const hash = fullHash.split('?')[0];
-
-      if (hash.startsWith('product-')) {
-        const id = hash.replace('product-', '');
-        // Search in dynamic/merged products first
-        const foundProduct = products.find(
-          (p) => String(p.id) === String(id) || String(p.slug) === String(id)
-        );
-
-        if (foundProduct) {
-          setSelectedProduct(foundProduct);
-        } else if (import.meta.env.DEV) {
-          console.error(`[CRITICAL DEVELOPMENT ERROR] Selected product "${id}" was not found in the database products list.`);
-        }
+    if (activePage === 'product' && products.length > 0) {
+      const slug = location.pathname.replace('/product/', '');
+      const foundProduct = products.find(
+        (p) => String(p.id) === String(slug) || String(p.slug) === String(slug)
+      );
+      if (foundProduct) {
+        setSelectedProduct(foundProduct);
+      } else if (import.meta.env.DEV) {
+        console.error(`[CRITICAL DEVELOPMENT ERROR] Selected product "${slug}" was not found in the database products list.`);
       }
+    }
+  }, [activePage, products, location.pathname]);
+
+  // ---------------------------------------------------------------------------
+  // Convenience navigation callbacks passed to legacy components
+  // ---------------------------------------------------------------------------
+  const setActivePage = (page) => {
+    const pageRouteMap = {
+      home: '/',
+      shop: '/shop',
+      wishlist: '/wishlist',
+      cart: '/cart',
+      categories: '/categories',
+      gifting: '/gifting',
+      profile: '/profile',
+      admin: '/admin',
+      policies: '/about',
     };
+    const target = pageRouteMap[page];
+    if (target) {
+      navigate(target);
+    }
+  };
 
-    handleHashChange();
+  const setActiveCategory = (category) => {
+    if (category === 'wishlist') {
+      navigate('/wishlist');
+    } else {
+      navigate(`/shop?category=${category}`);
+    }
+  };
 
-    window.addEventListener('hashchange', handleHashChange);
+  // ---------------------------------------------------------------------------
+  // Suspense fallback
+  // ---------------------------------------------------------------------------
+  const suspenseFallback = (
+    <div className="py-20 text-center font-body text-[#1C1B18]/50 bg-[#F7F3ED] min-h-[400px] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <i className="fas fa-circle-notch fa-spin text-lg" style={{ color: '#8B672F' }} />
+        <span className="text-xs uppercase tracking-widest">Loading details...</span>
+      </div>
+    </div>
+  );
 
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
-  }, [products]);
+  // ---------------------------------------------------------------------------
+  // Determine layout flags
+  // ---------------------------------------------------------------------------
+  const showNavbar = activePage !== 'admin';
+  const showFooter = activePage !== 'admin';
+  const showDailyOffer = activePage !== 'admin' && activePage !== 'cart' && activePage !== 'profile';
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [activePage]);
-
-
-
+  // Pages that get no padding/bg wrapper
+  const noWrapperPages = ['home', 'admin', 'cart', 'profile', 'gifting', 'policies'];
+  const needsWrapper = !noWrapperPages.includes(activePage);
 
   return (
     <div className="flex flex-col gap-0 min-h-screen">
+      {/* Legacy hash URL compatibility redirects */}
+      <HashRedirectCompatibility />
+      {/* Scroll to top on navigation */}
+      <ScrollRestoration />
+
       <a href="#main" className="skip-link">Skip to content</a>
       <SEO activePage={activePage} activeCategory={activeCategory} selectedProduct={selectedProduct} products={products} />
-      {activePage !== 'admin' && activePage !== 'cart' && activePage !== 'profile' && <DailyOfferPopup />}
+      {showDailyOffer && <DailyOfferPopup />}
 
       {/* Mini Bag — Global slide-out drawer, mounted at root so it overlays any page */}
       <MiniBag products={products} />
       
-      {activePage !== 'admin' && (
+      {showNavbar && (
         <Navbar
           onNavigate={setActivePage}
           activePage={activePage}
@@ -198,93 +235,102 @@ function App() {
       )}
 
       <main id="main" className="flex-1">
-        {activePage === 'home' && (
-          <>
-            <Hero />
-            <Gifting
-              onSelectCategory={setActiveCategory}
-              onNavigate={setActivePage}
-            />
-            <Pricing />
-            <Authenticity />
-          </>
-        )}
+        <Suspense fallback={suspenseFallback}>
+          <Routes>
+            {/* ─── Home ─── */}
+            <Route path="/" element={
+              <>
+                <Hero />
+                <Gifting
+                  onSelectCategory={setActiveCategory}
+                  onNavigate={setActivePage}
+                />
+                <Pricing />
+                <Authenticity />
+              </>
+            } />
 
-      {activePage !== 'home' && (
-        <div className={(activePage === 'admin' || activePage === 'cart' || activePage === 'profile' || activePage === 'gifting' || activePage === 'policies') ? '' : 'main-content-padding'} style={(activePage !== 'admin' && activePage !== 'cart' && activePage !== 'profile' && activePage !== 'gifting' && activePage !== 'policies') ? { backgroundColor: '#F7F3ED' } : {}}>
-          <Suspense fallback={
-            <div className="py-20 text-center font-body text-[#1C1B18]/50 bg-[#F7F3ED] min-h-[400px] flex items-center justify-center">
-              <div className="flex flex-col items-center gap-3">
-                <i className="fas fa-circle-notch fa-spin text-lg" style={{ color: '#8B672F' }} />
-                <span className="text-xs uppercase tracking-widest">Loading details...</span>
+            {/* ─── Shop / Collection ─── */}
+            <Route path="/shop" element={
+              <div className="main-content-padding" style={{ backgroundColor: '#F7F3ED' }}>
+                <SignatureCollection
+                  activeCategory={activeCategory}
+                  onSelectCategory={setActiveCategory}
+                  products={products}
+                />
               </div>
-            </div>
-          }>
-            {(activePage === 'shop' || activePage === 'wishlist') && (
-              <SignatureCollection
-                activeCategory={activeCategory}
-                onSelectCategory={setActiveCategory}
-                products={products}
-              />
-            )}
+            } />
 
-            {activePage === 'product' && (
-              <ProductPage
-                product={selectedProduct}
-                products={products}
-                onBackToShop={() => {
-                  window.location.hash = 'shop';
-                }}
-              />
-            )}
+            {/* ─── Wishlist ─── */}
+            <Route path="/wishlist" element={
+              <div className="main-content-padding" style={{ backgroundColor: '#F7F3ED' }}>
+                <SignatureCollection
+                  activeCategory="wishlist"
+                  onSelectCategory={setActiveCategory}
+                  products={products}
+                />
+              </div>
+            } />
 
-            {activePage === 'cart' && (
+            {/* ─── Product Detail ─── */}
+            <Route path="/product/:slug" element={
+              <div className="main-content-padding" style={{ backgroundColor: '#F7F3ED' }}>
+                <ProductPage
+                  product={selectedProduct}
+                  products={products}
+                  onBackToShop={() => navigate('/shop')}
+                />
+              </div>
+            } />
+
+            {/* ─── Cart / Checkout ─── */}
+            <Route path="/cart" element={
               <CartPage
                 products={products}
-                onBackToShop={() => {
-                  window.location.hash = 'shop';
-                }}
+                onBackToShop={() => navigate('/shop')}
               />
-            )}
+            } />
 
-            {activePage === 'profile' && (
-              <ProfilePage />
-            )}
+            {/* ─── Categories ─── */}
+            <Route path="/categories" element={
+              <div className="main-content-padding" style={{ backgroundColor: '#F7F3ED' }}>
+                <CategoriesPage
+                  onSelectCategory={(categoryKey) => {
+                    const normalized = (categoryKey || '').toLowerCase().trim();
+                    navigate(`/shop?category=${normalized}`);
+                  }}
+                />
+              </div>
+            } />
 
-            {activePage === 'payment-success' && (
-              <PaymentSuccessPage />
-            )}
+            {/* ─── Profile ─── */}
+            <Route path="/profile" element={<ProfilePage />} />
 
-            {activePage === 'payment-failure' && (
-              <PaymentFailurePage />
-            )}
+            {/* ─── Admin ─── */}
+            <Route path="/admin" element={<AdminPage />} />
 
-            {activePage === 'admin' && (
-              <AdminPage />
-            )}
+            {/* ─── Gifting ─── */}
+            <Route path="/gifting" element={<GiftingPage />} />
 
-            {activePage === 'policies' && <PoliciesPage />}
+            {/* ─── Payment Results ─── */}
+            <Route path="/payment/success" element={<PaymentSuccessPage />} />
+            <Route path="/payment/failure" element={<PaymentFailurePage />} />
 
-            {activePage === 'categories' && (
-              <CategoriesPage
-                onSelectCategory={(categoryKey) => {
-                  const normalized = (categoryKey || '').toLowerCase().trim();
-                  setActiveCategory(normalized);
-                  setActivePage('shop');
-                  window.location.hash = `shop?category=${normalized}`;
-                }}
-              />
-            )}
+            {/* ─── Policy Pages ─── */}
+            <Route path="/about" element={<PoliciesPage />} />
+            <Route path="/authenticity" element={<PoliciesPage />} />
+            <Route path="/shipping" element={<PoliciesPage />} />
+            <Route path="/refund" element={<PoliciesPage />} />
+            <Route path="/terms" element={<PoliciesPage />} />
+            <Route path="/privacy" element={<PoliciesPage />} />
 
-            {activePage === 'gifting' && (
-              <GiftingPage />
-            )}
-          </Suspense>
-        </div>
-      )}
+            {/* ─── 404 ─── */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
       </main>
 
-      {activePage !== 'admin' && <Footer onNavigate={setActivePage} />}
+      {showFooter && <Footer onNavigate={setActivePage} />}
     </div>
   );
 }

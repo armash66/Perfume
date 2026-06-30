@@ -1,24 +1,19 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { API_BASE_URL } from '../utils/config.js';
 import { clearCart } from '../utils/cartHelper.js';
 
 export default function PaymentSuccessPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isSignedIn, getToken } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Extract hash query parameters
-  const getHashParams = () => {
-    const fullHash = window.location.hash.replace('#', '');
-    const queryString = fullHash.split('?')[1] || '';
-    return new URLSearchParams(queryString);
-  };
-
-  const params = getHashParams();
-  const orderId = params.get('orderId');
-  const paymentId = params.get('paymentId');
+  const orderId = searchParams.get('orderId');
+  const paymentId = searchParams.get('paymentId');
 
   useEffect(() => {
     // Clear cart immediately upon landing on the success page using the authoritative helper
@@ -197,13 +192,13 @@ export default function PaymentSuccessPage() {
         {/* CTAs */}
         <div className="flex flex-col sm:flex-row gap-3">
           <button
-            onClick={() => { window.location.hash = 'profile'; }}
+            onClick={() => { navigate('/profile'); }}
             className="flex-1 btn-lux-primary"
           >
             View Orders
           </button>
           <button
-            onClick={() => { window.location.hash = 'shop'; }}
+            onClick={() => { navigate('/shop'); }}
             className="flex-1 btn-lux-secondary"
           >
             Continue Shopping

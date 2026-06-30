@@ -1,6 +1,8 @@
+import { useNavigate } from 'react-router-dom';
 import './Hero.css';
 
 export default function Hero() {
+  const navigate = useNavigate();
   const handleScrollToCollection = () => {
     document.getElementById('collection')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -62,13 +64,13 @@ export default function Hero() {
             <div className="hero-cta">
               <button
                 className="cta-primary"
-                onClick={() => { window.location.hash = 'shop?category=all'; }}
+                onClick={() => { navigate('/shop?category=all'); }}
               >
                 Explore Collection
               </button>
               <button
                 className="cta-secondary"
-                onClick={() => { window.location.hash = 'shop?category=bestsellers'; }}
+                onClick={() => { navigate('/shop?category=bestsellers'); }}
               >
                 Best Sellers
               </button>

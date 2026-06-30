@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import policiesData from './policiesData';
 import PolicyNav from './PolicyNav';
 import PolicyContent from './PolicyContent';
@@ -7,44 +8,35 @@ import PolicyContent from './PolicyContent';
  * PoliciesPage — Main layout component.
  * Desktop: sidebar nav + content panel.
  * Mobile: card grid → detail view with back navigation.
- * Supports URL hash deep-linking (e.g. #shipping, #returns).
  */
 export default function PoliciesPage() {
-  const getIdFromHash = () => {
-    const hash = window.location.hash.replace('#', '');
-    const match = policiesData.find((p) => p.id === hash);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const getPolicyIdFromPath = (pathname) => {
+    const segment = pathname.replace('/', '');
+    if (segment === 'refund') return 'returns';
+    const match = policiesData.find((p) => p.id === segment);
     return match ? match.id : policiesData[0].id;
   };
 
-  const [activeId, setActiveId] = useState(getIdFromHash);
-  const [mobileView, setMobileView] = useState(() => {
-    // If there's a hash, go directly to detail view on mobile
-    return window.location.hash ? 'detail' : 'grid';
-  });
+  const activeId = useMemo(() => getPolicyIdFromPath(location.pathname), [location.pathname]);
+  const [mobileView, setMobileView] = useState('detail');
+
+  useEffect(() => {
+    setMobileView('detail');
+  }, [location.pathname]);
 
   const activePolicy = policiesData.find((p) => p.id === activeId);
 
-  // Listen for hash changes (browser back/forward)
-  useEffect(() => {
-    const onHashChange = () => {
-      const id = getIdFromHash();
-      setActiveId(id);
-      setMobileView('detail');
-    };
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
-
   const handleSelect = useCallback((id) => {
-    setActiveId(id);
     setMobileView('detail');
-    window.location.hash = id;
+    navigate('/' + (id === 'returns' ? 'refund' : id));
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [navigate]);
 
   const handleBack = useCallback(() => {
     setMobileView('grid');
-    window.location.hash = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 

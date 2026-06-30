@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Footer.css';
 import { API_BASE_URL } from '../utils/config.js';
 
 export default function Footer({ onNavigate }) {
+  const navigate = useNavigate();
   const [settings, setSettings] = useState({
     storeName: 'DECANT ATELIER',
     supportPhone: '+91 98205 83776',
@@ -28,21 +30,28 @@ export default function Footer({ onNavigate }) {
     fetchSettings();
   }, []);
 
+  const policyRouteMap = {
+    about: '/about',
+    authenticity: '/authenticity',
+    shipping: '/shipping',
+    returns: '/refund',
+    terms: '/terms',
+    privacy: '/privacy',
+  };
+
   const handlePolicyClick = (e, id) => {
     e.preventDefault();
-    window.location.hash = id;
-    if (onNavigate) onNavigate('policies');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const route = policyRouteMap[id] || '/about';
+    navigate(route);
   };
 
   const handleHomeLinkClick = (e, id) => {
     e.preventDefault();
-    window.location.hash = id;
     if (id === 'collection' || id === 'shop') {
-      if (onNavigate) onNavigate('shop');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      navigate('/shop');
     } else {
-      if (onNavigate) onNavigate('home');
+      navigate('/');
+      // For scroll-anchors on home page, wait for navigation then scroll
       setTimeout(() => {
         const element = document.getElementById(id);
         if (element) {
@@ -54,9 +63,7 @@ export default function Footer({ onNavigate }) {
 
   const handleDiscoverClick = (e, filterKey) => {
     e.preventDefault();
-    window.location.hash = `shop?category=${filterKey}`;
-    if (onNavigate) onNavigate('shop');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate(`/shop?category=${filterKey}`);
   };
 
   return (
@@ -75,16 +82,16 @@ export default function Footer({ onNavigate }) {
           <h4 className="footer-col-title">EXPLORE</h4>
           <ul className="footer-links">
             <li>
-              <a href="#shop?category=bestsellers" onClick={(e) => handleDiscoverClick(e, 'bestsellers')}>Best Sellers</a>
+              <a href="/shop?category=bestsellers" onClick={(e) => handleDiscoverClick(e, 'bestsellers')}>Best Sellers</a>
             </li>
             <li>
-              <a href="#shop?category=decants" onClick={(e) => handleDiscoverClick(e, 'decants')}>Decants</a>
+              <a href="/shop?category=decants" onClick={(e) => handleDiscoverClick(e, 'decants')}>Decants</a>
             </li>
             <li>
-              <a href="#shop?category=newarrivals" onClick={(e) => handleDiscoverClick(e, 'newarrivals')}>New Arrivals</a>
+              <a href="/shop?category=newarrivals" onClick={(e) => handleDiscoverClick(e, 'newarrivals')}>New Arrivals</a>
             </li>
             <li>
-              <a href="#shop?category=sets" onClick={(e) => handleDiscoverClick(e, 'sets')}>Gift Sets</a>
+              <a href="/shop?category=sets" onClick={(e) => handleDiscoverClick(e, 'sets')}>Gift Sets</a>
             </li>
           </ul>
         </div>
@@ -94,33 +101,33 @@ export default function Footer({ onNavigate }) {
           <h4 className="footer-col-title">POLICIES</h4>
           <ul className="footer-links">
             <li>
-              <a href="#about" onClick={(e) => handlePolicyClick(e, 'about')}>About Decant Atelier</a>
+              <a href="/about" onClick={(e) => handlePolicyClick(e, 'about')}>About Decant Atelier</a>
             </li>
             <li>
-              <a href="#authenticity" onClick={(e) => handlePolicyClick(e, 'authenticity')}>
+              <a href="/authenticity" onClick={(e) => handlePolicyClick(e, 'authenticity')}>
                 Authenticity &amp; Sourcing
               </a>
             </li>
             <li>
-              <a href="#about" onClick={(e) => handlePolicyClick(e, 'about')}>FAQ</a>
+              <a href="/about" onClick={(e) => handlePolicyClick(e, 'about')}>FAQ</a>
             </li>
             <li>
-              <a href="#shipping" onClick={(e) => handlePolicyClick(e, 'shipping')}>
+              <a href="/shipping" onClick={(e) => handlePolicyClick(e, 'shipping')}>
                 Shipping Policy
               </a>
             </li>
             <li>
-              <a href="#returns" onClick={(e) => handlePolicyClick(e, 'returns')}>
+              <a href="/refund" onClick={(e) => handlePolicyClick(e, 'returns')}>
                 Return Policy
               </a>
             </li>
             <li>
-              <a href="#privacy" onClick={(e) => handlePolicyClick(e, 'privacy')}>
+              <a href="/privacy" onClick={(e) => handlePolicyClick(e, 'privacy')}>
                 Privacy Policy
               </a>
             </li>
             <li>
-              <a href="#terms" onClick={(e) => handlePolicyClick(e, 'terms')}>
+              <a href="/terms" onClick={(e) => handlePolicyClick(e, 'terms')}>
                 Terms &amp; Conditions
               </a>
             </li>

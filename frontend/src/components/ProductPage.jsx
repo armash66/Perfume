@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, SignInButton } from '@clerk/clerk-react';
 import { addToCart, getCart, updateQuantity } from '../utils/cartHelper';
 import { showToast } from '../utils/toast';
@@ -33,6 +35,8 @@ function getBottleKey(sizeStr) {
 
 export default function ProductPage({ product: initialProduct, products = [], onBackToShop }) {
   const { isSignedIn, getToken } = useAuth();
+  const navigate = useNavigate();
+  const { slug } = useParams();
   const [product, setProduct] = useState(initialProduct);
   const [loading, setLoading] = useState(false);
 
@@ -83,70 +87,36 @@ export default function ProductPage({ product: initialProduct, products = [], on
     }
   }, [initialProduct]);
 
-  const fetchProductDetails = async () => {
-    const hash = window.location.hash.replace('#', '');
-    if (hash.startsWith('product-')) {
-      const slug = hash.replace('product-', '');
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/products/${slug}`);
-        if (res.ok) {
-          const dbProduct = await res.json();
+  const fetchProductDetails = async (productSlug) => {
+    if (!productSlug) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/products/${productSlug}`);
+      if (res.ok) {
+        const dbProduct = await res.json();
 
-          // Normalize images: the single-product API returns ProductImage objects
-          // [{id, productId, imageUrl, altText, position}], but the list API returns
-          // plain URL strings. We normalize here so galleryImages always gets strings.
-          const normalizedImages = Array.isArray(dbProduct.images)
-            ? dbProduct.images.map(img =>
-              typeof img === 'string' ? img : (img.imageUrl || img.url || '')
-            ).filter(Boolean)
-            : [];
-          const normalizedImage = normalizedImages[0] || dbProduct.image || null;
+        // Normalize images: the single-product API returns ProductImage objects
+        // [{id, productId, imageUrl, altText, position}], but the list API returns
+        // plain URL strings. We normalize here so galleryImages always gets strings.
+        const normalizedImages = Array.isArray(dbProduct.images)
+          ? dbProduct.images.map(img =>
+            typeof img === 'string' ? img : (img.imageUrl || img.url || '')
+          ).filter(Boolean)
+          : [];
+        const normalizedImage = normalizedImages[0] || dbProduct.image || null;
 
-          const staticProd = collectionsData.find(sp => sp.id === dbProduct.slug || sp.id === dbProduct.id);
+        const staticProd = collectionsData.find(sp => sp.id === dbProduct.slug || sp.id === dbProduct.id);
 
-          let merged = {};
-          if (staticProd) {
-            merged = {
-              ...staticProd,
-              ...dbProduct,
-              // Always use normalized images; fall back to static if DB has none
-              image: normalizedImage || staticProd.image,
-              images: normalizedImages.length > 0 ? normalizedImages : staticProd.images,
-              sizes: dbProduct.variants && dbProduct.variants.length > 0
-                ? dbProduct.variants.map(v => ({
-                  size: v.size,
-                  price: parseFloat(v.price),
-                  label: v.size.includes('5ml') ? 'Travel friendly' :
-                    v.size.includes('10ml') ? 'Best value' :
-                      v.size.includes('20ml') ? 'Premium decant' : 'Collector size',
-                  stock: v.stock,
-                  sku: v.sku,
-                  variantId: v.id
-                }))
-                : staticProd.sizes
-            };
-          } else {
-            merged = {
-              tagline: dbProduct.brand || 'Premium Fragrance',
-              notes: [],
-              tags: dbProduct.featured ? ['featured'] : [],
-              pyramid: {
-                top: 'Fresh top notes',
-                heart: 'Aromatic heart notes',
-                base: 'Long-lasting base notes'
-              },
-              characteristics: {
-                longevity: '8+ Hours',
-                sillage: 'Moderate',
-                gender: 'Unisex'
-              },
-              retailPrice: parseFloat(dbProduct.price) * 1.5,
-              competitorPrice: parseFloat(dbProduct.price) * 1.25,
-              ...dbProduct,
-              image: normalizedImage,
-              images: normalizedImages,
-              sizes: dbProduct.variants ? dbProduct.variants.map(v => ({
+        let merged = {};
+        if (staticProd) {
+          merged = {
+            ...staticProd,
+            ...dbProduct,
+            // Always use normalized images; fall back to static if DB has none
+            image: normalizedImage || staticProd.image,
+            images: normalizedImages.length > 0 ? normalizedImages : staticProd.images,
+            sizes: dbProduct.variants && dbProduct.variants.length > 0
+              ? dbProduct.variants.map(v => ({
                 size: v.size,
                 price: parseFloat(v.price),
                 label: v.size.includes('5ml') ? 'Travel friendly' :
@@ -155,29 +125,56 @@ export default function ProductPage({ product: initialProduct, products = [], on
                 stock: v.stock,
                 sku: v.sku,
                 variantId: v.id
-              })) : []
-            };
-          }
-          setProduct(merged);
+              }))
+              : staticProd.sizes
+          };
+        } else {
+          merged = {
+            tagline: dbProduct.brand || 'Premium Fragrance',
+            notes: [],
+            tags: dbProduct.featured ? ['featured'] : [],
+            pyramid: {
+              top: 'Fresh top notes',
+              heart: 'Aromatic heart notes',
+              base: 'Long-lasting base notes'
+            },
+            characteristics: {
+              longevity: '8+ Hours',
+              sillage: 'Moderate',
+              gender: 'Unisex'
+            },
+            retailPrice: parseFloat(dbProduct.price) * 1.5,
+            competitorPrice: parseFloat(dbProduct.price) * 1.25,
+            ...dbProduct,
+            image: normalizedImage,
+            images: normalizedImages,
+            sizes: dbProduct.variants ? dbProduct.variants.map(v => ({
+              size: v.size,
+              price: parseFloat(v.price),
+              label: v.size.includes('5ml') ? 'Travel friendly' :
+                v.size.includes('10ml') ? 'Best value' :
+                  v.size.includes('20ml') ? 'Premium decant' : 'Collector size',
+              stock: v.stock,
+              sku: v.sku,
+              variantId: v.id
+            })) : []
+          };
         }
-      } catch (err) {
-        console.error('Failed to fetch product details:', err);
-      } finally {
-        setLoading(false);
+        setProduct(merged);
       }
+    } catch (err) {
+      console.error('Failed to fetch product details:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Fetch product from backend slug
+  // Fetch product from React Router slug param
   useEffect(() => {
-    fetchProductDetails();
-
-    const handleHashChange = () => {
-      fetchProductDetails();
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [initialProduct]);
+    if (slug) {
+      fetchProductDetails(slug);
+    }
+  }, [slug, initialProduct]);
 
   // Sync cart, mutating locks, and wishlist dynamically
   useEffect(() => {
@@ -527,7 +524,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
 
       if (result && (result.success || result.reason === 'NO_OP')) {
         // Deterministic flow: Add/Update -> Success -> Navigate to cart exactly once
-        window.location.hash = 'cart';
+        navigate('/cart');
       }
     } catch (err) {
       console.error('Failed to add to cart:', err);
@@ -1218,7 +1215,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
                 <div
                   key={simProd.id}
                   onClick={() => {
-                    window.location.hash = `product-${simProd.slug || simProd.id}`;
+                    navigate(`/product/${simProd.slug || simProd.id}`);
                   }}
                   className="group h-full flex flex-col bg-white border border-black/5 hover:border-black/20 shadow-sm transition-all duration-500 ease-out hover:-translate-y-1 overflow-hidden cursor-pointer"
                 >

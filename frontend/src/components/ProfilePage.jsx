@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth, useUser, SignOutButton, SignInButton } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { showToast } from '../utils/toast';
@@ -18,6 +19,8 @@ const statusStyles = {
 };
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
   const { isLoaded: userLoaded, user } = useUser();
 
@@ -25,22 +28,15 @@ export default function ProfilePage() {
   const [addresses, setAddresses] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
-  const getTabFromHash = () => {
-    const fullHash = window.location.hash.replace('#', '');
-    const params = new URLSearchParams(fullHash.split('?')[1] || '');
-    const tab = params.get('tab');
+
+  const activeSection = useMemo(() => {
+    const tab = searchParams.get('tab');
     return ['profile', 'orders', 'addresses', 'security'].includes(tab) ? tab : 'profile';
+  }, [searchParams]);
+
+  const setActiveSection = (sectionId) => {
+    setSearchParams({ tab: sectionId });
   };
-
-  const [activeSection, setActiveSection] = useState(getTabFromHash); // profile, orders, addresses, security
-
-  useEffect(() => {
-    const handleHashTab = () => {
-      setActiveSection(getTabFromHash());
-    };
-    window.addEventListener('hashchange', handleHashTab);
-    return () => window.removeEventListener('hashchange', handleHashTab);
-  }, []);
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
@@ -145,7 +141,7 @@ export default function ProfilePage() {
         }
       }
       showToast('All items added to bag!', 'success');
-      window.location.hash = 'cart';
+      navigate('/cart');
     } catch (err) {
       console.error('Reorder failed:', err);
       showToast('Failed to complete reorder request.', 'error');
@@ -447,7 +443,7 @@ export default function ProfilePage() {
               
               {dbUser?.role === 'ADMIN' && (
                 <button
-                  onClick={() => { window.location.hash = 'admin'; }}
+                  onClick={() => { navigate('/admin'); }}
                   className="nav-tab-btn admin-badge"
                 >
                   Admin Console
@@ -599,7 +595,7 @@ export default function ProfilePage() {
                         No orders yet. Find your next signature scent.
                       </p>
                       <button
-                        onClick={() => { window.location.hash = 'shop'; }}
+                        onClick={() => { navigate('/shop'); }}
                         className="profile-btn-primary mt-6 py-2.5 px-6 text-[0.65rem]"
                       >
                         Explore Collections

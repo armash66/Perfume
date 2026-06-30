@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getCart } from '../utils/cartHelper';
 import { CartStore } from '../utils/store.js';
 import { sanitizeImageUrl } from '../utils/config.js';
 import './MiniBag.css';
 
 export default function MiniBag({ products = [], onCloseMiniBag }) {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [addedItem, setAddedItem] = useState(null);
   const [cartItems, setCartItems] = useState([]);
@@ -146,7 +148,7 @@ export default function MiniBag({ products = [], onCloseMiniBag }) {
 
   const handleCheckoutClick = () => {
     closeDrawer();
-    window.location.hash = 'cart';
+    navigate('/cart');
     
     // Dispatch analytics checkout started hook
     window.dispatchEvent(new CustomEvent('checkout_started', {
@@ -156,7 +158,7 @@ export default function MiniBag({ products = [], onCloseMiniBag }) {
 
   const handleRecClick = (product) => {
     closeDrawer();
-    window.location.hash = `product-${product.slug || product.id}`;
+    navigate(`/product/${product.slug || product.id}`);
   };
 
   if (!isOpen) return null;

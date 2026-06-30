@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function GiftingPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('idle'); // 'idle' | 'submitting' | 'success' | 'error'
   const [message, setMessage] = useState('');
@@ -14,7 +16,7 @@ export default function GiftingPage() {
 
   const handleExplore = (e) => {
     e.preventDefault();
-    window.location.hash = 'collection';
+    navigate('/shop');
   };
 
   const handleSubmit = (e) => {

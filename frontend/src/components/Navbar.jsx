@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 const NavbarUserMenu = lazy(() => import('./NavbarUserMenu'));
 import { CartStore } from '../utils/store.js';
 import { clearCart } from '../utils/cartHelper.js';
@@ -70,6 +71,7 @@ const shopDescriptions = {
 };
 
 export default function Navbar({ onNavigate, activePage, onSelectCategory, activeCategory, products = [] }) {
+  const navigate = useNavigate();
 
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -399,42 +401,31 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
     if (e) e.preventDefault();
     setIsMobileMenuOpen(false);
     setIsSearchOpen(false);
-    const policies = ['authenticity', 'about', 'shipping', 'returns', 'terms', 'privacy', 'reviews'];
+    const policyRouteMap = {
+      authenticity: '/authenticity',
+      about: '/about',
+      shipping: '/shipping',
+      returns: '/refund',
+      terms: '/terms',
+      privacy: '/privacy',
+    };
     const basePage = hash.split('?')[0];
 
     if (hash === 'cart') {
-      window.location.hash = 'cart';
-      if (onNavigate) onNavigate('cart');
+      navigate('/cart');
     } else if (hash === 'wishlist') {
-      window.location.hash = 'wishlist';
-      if (onNavigate) onNavigate('wishlist');
+      navigate('/wishlist');
     } else if (hash === 'categories') {
-      window.location.hash = 'categories';
-      if (onNavigate) onNavigate('categories');
+      navigate('/categories');
     } else if (hash === 'gifting') {
-      window.location.hash = 'gifting';
-      if (onNavigate) onNavigate('gifting');
-    } else if (policies.includes(basePage)) {
-      window.location.hash = hash;
-      if (onNavigate) onNavigate('policies');
-      setTimeout(() => {
-        const el = document.getElementById(basePage);
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-        else window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 100);
+      navigate('/gifting');
+    } else if (policyRouteMap[basePage]) {
+      navigate(policyRouteMap[basePage]);
     } else {
-      window.location.hash = hash;
-      if (onNavigate) {
-        if (basePage === 'collection' || basePage === 'shop') onNavigate('shop');
-        else if (basePage === 'profile') onNavigate('profile');
-        else if (basePage === 'admin') onNavigate('admin');
-        else onNavigate('home');
-      }
-      setTimeout(() => {
-        const el = document.getElementById(basePage);
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-        else if (hash === '') window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 100);
+      if (basePage === 'collection' || basePage === 'shop') navigate('/shop');
+      else if (basePage === 'profile') navigate('/profile');
+      else if (basePage === 'admin') navigate('/admin');
+      else navigate('/');
     }
   };
 
@@ -443,19 +434,13 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
     setIsMobileMenuOpen(false);
     setIsSearchOpen(false);
     const normalized = (filterKey || '').toLowerCase().trim();
-    if (onSelectCategory) onSelectCategory(normalized);
-    if (onNavigate) onNavigate('shop');
-    window.location.hash = `shop?category=${normalized}`;
-    setTimeout(() => {
-      const el = document.getElementById('collection');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    navigate(`/shop?category=${normalized}`);
   };
 
   const handleSearchProductClick = (product) => {
     setIsSearchOpen(false);
     setSearchQuery('');
-    window.location.hash = `product-${product.slug || product.id}`;
+    navigate(`/product/${product.slug || product.id}`);
   };
 
   // Smart client-side search: matches name, brand, family, notes, tags/occasions
@@ -477,7 +462,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
   const handleViewAllResults = () => {
     setIsSearchOpen(false);
     const encoded = encodeURIComponent(searchQuery.trim());
-    window.location.hash = encoded ? `shop?search=${encoded}` : 'shop';
+    navigate(encoded ? `/shop?search=${encoded}` : '/shop');
     setSearchQuery('');
   };
 
@@ -519,7 +504,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
               >
                 <a 
                   id="nav-shop-trigger"
-                  href="#collection" 
+                  href="/shop" 
                   className="nav-link" 
                   onClick={(e) => handleLinkClick(e, 'shop')}
                   aria-haspopup="true"
@@ -548,7 +533,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
                               return (
                                 <a
                                   key={item.id}
-                                  href="#collection"
+                                  href="/shop"
                                   data-index={idx}
                                   className={`lux-dropdown-item lux-shop-item ${isHovered ? 'hovered' : ''}`}
                                   onClick={(e) => {
@@ -587,7 +572,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
               >
                 <a 
                   id="nav-collections-trigger"
-                  href="#categories" 
+                  href="/categories" 
                   className="nav-link" 
                   onClick={(e) => handleLinkClick(e, 'categories')}
                   aria-haspopup="true"
@@ -652,7 +637,7 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
               </li>
 
               <li className="nav-item">
-                <a href="#gifting" className="nav-link" onClick={(e) => handleLinkClick(e, 'gifting')}>Gifting</a>
+                <a href="/gifting" className="nav-link" onClick={(e) => handleLinkClick(e, 'gifting')}>Gifting</a>
               </li>
 
             </ul>
@@ -677,11 +662,11 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
                 <SearchIcon className="nav-search-svg" />
               </button>
 
-              <a href="#wishlist" className="nav-icon-btn nav-wishlist-btn" onClick={(e) => handleLinkClick(e, 'wishlist')} title="My Wishlist" aria-label="Wishlist">
+              <a href="/wishlist" className="nav-icon-btn nav-wishlist-btn" onClick={(e) => handleLinkClick(e, 'wishlist')} title="My Wishlist" aria-label="Wishlist">
                 <HeartIcon className="nav-wishlist-icon" />
               </a>
 
-              <a href="#cart" className="nav-icon-btn cart-icon" onClick={(e) => handleLinkClick(e, 'cart')} aria-label="Cart">
+              <a href="/cart" className="nav-icon-btn cart-icon" onClick={(e) => handleLinkClick(e, 'cart')} aria-label="Cart">
                 <ShoppingBagIcon className="nav-bag-icon" />
                 {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
               </a>
@@ -720,11 +705,11 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
               Shop <i className="fas fa-chevron-down" />
             </button>
             <ul id="mobile-shop-submenu" className={`mobile-sub ${isMobileShopOpen ? 'open' : ''}`}>
-              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'all')}>Shop All</a></li>
-              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'decants')}>Decants</a></li>
-              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'fullbottles')}>Full Bottles</a></li>
-              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'newarrivals')}>New Arrivals</a></li>
-              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'bestsellers')}>Best Sellers</a></li>
+              <li><a href="/shop" onClick={(e) => handleCategoryClick(e, 'all')}>Shop All</a></li>
+              <li><a href="/shop?category=decants" onClick={(e) => handleCategoryClick(e, 'decants')}>Decants</a></li>
+              <li><a href="/shop?category=fullbottles" onClick={(e) => handleCategoryClick(e, 'fullbottles')}>Full Bottles</a></li>
+              <li><a href="/shop?category=newarrivals" onClick={(e) => handleCategoryClick(e, 'newarrivals')}>New Arrivals</a></li>
+              <li><a href="/shop?category=bestsellers" onClick={(e) => handleCategoryClick(e, 'bestsellers')}>Best Sellers</a></li>
             </ul>
           </li>
           <li>
@@ -737,18 +722,18 @@ export default function Navbar({ onNavigate, activePage, onSelectCategory, activ
               Collections <i className="fas fa-chevron-down" />
             </button>
             <ul id="mobile-collections-submenu" className={`mobile-sub ${isMobileCollectionsOpen ? 'open' : ''}`}>
-              <li><a href="#categories" onClick={(e) => handleLinkClick(e, 'categories')}>All Collections</a></li>
-              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'summer')}>Summer</a></li>
-              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'winter')}>Winter</a></li>
-              {/* <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'office')}>Office</a></li> */}
-              {/* <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'datenight')}>Date Night</a></li> */}
-              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'her')}>For Her</a></li>
-              <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'him')}>For Him</a></li>
+              <li><a href="/categories" onClick={(e) => handleLinkClick(e, 'categories')}>All Collections</a></li>
+              <li><a href="/shop?category=summer" onClick={(e) => handleCategoryClick(e, 'summer')}>Summer</a></li>
+              <li><a href="/shop?category=winter" onClick={(e) => handleCategoryClick(e, 'winter')}>Winter</a></li>
+              {/* <li><a href="/shop?category=office" onClick={(e) => handleCategoryClick(e, 'office')}>Office</a></li> */}
+              {/* <li><a href="/shop?category=datenight" onClick={(e) => handleCategoryClick(e, 'datenight')}>Date Night</a></li> */}
+              <li><a href="/shop?category=her" onClick={(e) => handleCategoryClick(e, 'her')}>For Her</a></li>
+              <li><a href="/shop?category=him" onClick={(e) => handleCategoryClick(e, 'him')}>For Him</a></li>
             </ul>
           </li>
-          <li><a href="#gifting" onClick={(e) => handleLinkClick(e, 'gifting')}>Gifting</a></li>
-          <li><a href="#collection" onClick={(e) => handleCategoryClick(e, 'bestsellers')}>Best Sellers</a></li>
-          <li><a href="#about" onClick={(e) => handleLinkClick(e, 'about')}>About</a></li>
+          <li><a href="/gifting" onClick={(e) => handleLinkClick(e, 'gifting')}>Gifting</a></li>
+          <li><a href="/shop?category=bestsellers" onClick={(e) => handleCategoryClick(e, 'bestsellers')}>Best Sellers</a></li>
+          <li><a href="/about" onClick={(e) => handleLinkClick(e, 'about')}>About</a></li>
           
           <Suspense fallback={null}>
             <NavbarUserMenu
