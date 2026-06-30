@@ -224,14 +224,18 @@ export default function SEO({ activePage, activeCategory, selectedProduct, produ
           '@type': 'ListItem',
           'position': idx + 1,
           'url': prodUrl,
-          'name': prod.name,
-          'image': prod.image ? (prod.image.startsWith('http') ? prod.image : `https://decantatelier.in${prod.image}`) : 'https://decantatelier.in/decantatelierlogo.png',
-          'offers': {
-            '@type': 'Offer',
-            'price': price,
-            'priceCurrency': 'INR',
-            'availability': isOutOfStock ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
-            'url': prodUrl
+          'item': {
+            '@type': 'Product',
+            'url': prodUrl,
+            'name': prod.name,
+            'image': prod.image ? (prod.image.startsWith('http') ? prod.image : `https://decantatelier.in${prod.image}`) : 'https://decantatelier.in/decantatelierlogo.png',
+            'offers': {
+              '@type': 'Offer',
+              'price': price,
+              'priceCurrency': 'INR',
+              'availability': isOutOfStock ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+              'url': prodUrl
+            }
           }
         };
       });
