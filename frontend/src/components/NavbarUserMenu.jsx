@@ -16,6 +16,7 @@ export default function NavbarUserMenu({ mode, handleLinkClick, setIsMobileMenuO
   const clerk = useClerk();
   const [dbUser, setDbUser] = useState(null);
 
+  // Hook 1: Sync Clerk Auth state to local CartStore
   useEffect(() => {
     if (!authLoaded) return;
     CartStore.setAuthenticated(isSignedIn);
@@ -23,6 +24,30 @@ export default function NavbarUserMenu({ mode, handleLinkClick, setIsMobileMenuO
       clearCart();
     }
   }, [authLoaded, isSignedIn]);
+
+  // Hook 2: Fetch and load DB profile (Declared unconditionally BEFORE early returns)
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!isSignedIn) {
+        setDbUser(null);
+        return;
+      }
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const res = await fetch(`${API_BASE_URL}/api/user/profile`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const profileData = await res.json();
+          setDbUser(profileData);
+        }
+      } catch (err) {
+        console.error('NavbarUserMenu failed to fetch user profile:', err);
+      }
+    }
+    fetchProfile();
+  }, [isSignedIn, getToken]);
 
   const handleSignInClick = (e) => {
     if (e) e.preventDefault();
@@ -48,6 +73,7 @@ export default function NavbarUserMenu({ mode, handleLinkClick, setIsMobileMenuO
     }
   };
 
+  // Early return check (Unconditionally placed AFTER all React Hook declarations)
   if (!authLoaded) {
     if (mode === 'desktop') {
       return (
@@ -65,29 +91,6 @@ export default function NavbarUserMenu({ mode, handleLinkClick, setIsMobileMenuO
       </>
     );
   }
-
-  useEffect(() => {
-    async function fetchProfile() {
-      if (!isSignedIn) {
-        setDbUser(null);
-        return;
-      }
-      try {
-        const token = await getToken();
-        if (!token) return;
-        const res = await fetch(`${API_BASE_URL}/api/user/profile`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const profileData = await res.json();
-          setDbUser(profileData);
-        }
-      } catch (err) {
-        console.error('NavbarUserMenu failed to fetch user profile:', err);
-      }
-    }
-    fetchProfile();
-  }, [isSignedIn, getToken]);
 
   if (mode === 'desktop') {
     return (
