@@ -43,7 +43,10 @@ function App() {
   // Derive activePage & activeCategory from the URL pathname + search params
   // ---------------------------------------------------------------------------
   const activePage = useMemo(() => {
-    const path = location.pathname;
+    let path = location.pathname;
+    if (path.length > 1 && path.endsWith('/')) {
+      path = path.slice(0, -1);
+    }
     if (path === '/') return 'home';
     if (path === '/shop') return 'shop';
     if (path === '/wishlist') return 'wishlist';
@@ -63,8 +66,12 @@ function App() {
   }, [location.pathname]);
 
   const activeCategory = useMemo(() => {
-    if (location.pathname === '/wishlist') return 'wishlist';
-    if (location.pathname === '/shop') {
+    let path = location.pathname;
+    if (path.length > 1 && path.endsWith('/')) {
+      path = path.slice(0, -1);
+    }
+    if (path === '/wishlist') return 'wishlist';
+    if (path === '/shop') {
       return searchParams.get('category') || 'all';
     }
     return 'all';
@@ -146,7 +153,10 @@ function App() {
   // Resolve selected product from URL params when on a product page
   useEffect(() => {
     if (activePage === 'product' && products.length > 0) {
-      const slug = location.pathname.replace('/product/', '');
+      let slug = location.pathname.replace('/product/', '');
+      if (slug.endsWith('/')) {
+        slug = slug.slice(0, -1);
+      }
       const foundProduct = products.find(
         (p) => String(p.id) === String(slug) || String(p.slug) === String(slug)
       );

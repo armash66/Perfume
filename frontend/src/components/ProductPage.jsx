@@ -38,7 +38,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
   const navigate = useNavigate();
   const { slug } = useParams();
   const [product, setProduct] = useState(initialProduct);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!!slug && !initialProduct);
 
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0);
   // selectedBottle holds the bottle option id, or null when no bottle applies
@@ -78,14 +78,6 @@ export default function ProductPage({ product: initialProduct, products = [], on
       showToast('Removed from your wishlist', 'success');
     }
   };
-
-
-  // Sync prop changes to state
-  useEffect(() => {
-    if (initialProduct) {
-      setProduct(initialProduct);
-    }
-  }, [initialProduct]);
 
   const fetchProductDetails = async (productSlug) => {
     if (!productSlug) return;
@@ -161,18 +153,41 @@ export default function ProductPage({ product: initialProduct, products = [], on
           };
         }
         setProduct(merged);
+      } else {
+        // Fallback to static collectionsData if not found in DB
+        const staticProd = collectionsData.find(sp => sp.id === productSlug);
+        if (staticProd) {
+          setProduct(staticProd);
+        } else {
+          setProduct(null);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch product details:', err);
+      // Fallback to static collectionsData on error
+      const staticProd = collectionsData.find(sp => sp.id === productSlug);
+      if (staticProd) {
+        setProduct(staticProd);
+      } else {
+        setProduct(null);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch product from React Router slug param
+  // Single robust effect to sync initialProduct or fetch by slug (supporting trailing slashes)
   useEffect(() => {
-    if (slug) {
-      fetchProductDetails(slug);
+    let cleanSlug = slug;
+    if (cleanSlug && cleanSlug.endsWith('/')) {
+      cleanSlug = cleanSlug.slice(0, -1);
+    }
+
+    if (initialProduct && (initialProduct.slug === cleanSlug || initialProduct.id === cleanSlug)) {
+      setProduct(initialProduct);
+      setLoading(false);
+    } else if (cleanSlug) {
+      fetchProductDetails(cleanSlug);
     }
   }, [slug, initialProduct]);
 
@@ -968,10 +983,16 @@ export default function ProductPage({ product: initialProduct, products = [], on
                 </h1>
 
                 <button
-                  onClick={() => showToast("Added to your collection wishlist.", "success")}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2 border border-black/8 rounded-full text-[0.62rem] font-bold tracking-wider uppercase hover:border-black/30 hover:bg-black/[0.02] transition-all select-none cursor-pointer min-h-[44px] min-w-[44px] whitespace-nowrap"
+                  onClick={toggleWishlist}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 border rounded-full text-[0.62rem] font-bold tracking-wider uppercase hover:border-black/30 hover:bg-black/[0.02] transition-all select-none cursor-pointer min-h-[44px] min-w-[44px] whitespace-nowrap"
+                  style={{
+                    color: wishlist.includes(product.id) ? '#FF003C' : '#2C2926',
+                    borderColor: wishlist.includes(product.id) ? 'rgba(255, 0, 60, 0.3)' : 'rgba(0,0,0,0.08)',
+                    backgroundColor: wishlist.includes(product.id) ? 'rgba(255, 0, 60, 0.04)' : 'transparent'
+                  }}
+                  aria-label="Toggle wishlist"
                 >
-                  <i className="far fa-heart"></i> Wishlist
+                  <i className={wishlist.includes(product.id) ? 'fas fa-heart text-[#FF003C]' : 'far fa-heart'}></i> Wishlist
                 </button>
               </div>
 
@@ -1226,6 +1247,17 @@ export default function ProductPage({ product: initialProduct, products = [], on
                       loading="lazy"
                       className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-103"
                     />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const added = WishlistStore.toggle(simProd.id);
+                        showToast(added ? 'Added to your collection wishlist.' : 'Removed from your wishlist', 'success');
+                      }}
+                      className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm border border-black/5 flex items-center justify-center hover:text-[#FF003C] hover:bg-white transition-all duration-300 shadow-sm cursor-pointer text-[#2C2926]"
+                      aria-label="Toggle wishlist"
+                    >
+                      <i className={`${wishlist.includes(simProd.id) ? 'fas fa-heart text-[#FF003C]' : 'far fa-heart'}`} />
+                    </button>
                   </div>
                   <div className="p-4 flex flex-col flex-1 text-left">
                     <span className="text-[0.55rem] font-bold tracking-[2px] text-black/40 block mb-1 uppercase">

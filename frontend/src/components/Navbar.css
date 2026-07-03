@@ -93,6 +93,22 @@ body.marquee-hidden .main-content-padding {
   position: relative;
 }
 
+.nav-item.dropdown::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: -20px;
+  right: -20px;
+  height: 15px;
+  background: transparent;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.nav-item.dropdown:hover::after {
+  pointer-events: auto;
+}
+
 .nav-link {
   color: #1B1A17;
   text-decoration: none;

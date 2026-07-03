@@ -1,3 +1,5 @@
+import dns from 'dns';
+dns.setDefaultResultOrder('ipv4first');
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -1542,8 +1544,10 @@ app.get('/api/products', async (req, res) => {
 
 // GET single product by slug or ID
 app.get('/api/products/:slug', async (req, res) => {
+  const reqStart = performance.now();
   const { slug } = req.params;
   try {
+    const dbStart = performance.now();
     const product = await prisma.product.findFirst({
       where: {
         OR: [
@@ -1573,6 +1577,7 @@ app.get('/api/products/:slug', async (req, res) => {
         }
       }
     });
+    const dbFinish = performance.now();
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
@@ -1586,6 +1591,9 @@ app.get('/api/products/:slug', async (req, res) => {
         stock: Math.floor(totalRemainingML / v.volumeML)
       }));
     }
+
+    const resSend = performance.now();
+    console.log(`[PERF METRICS] GET /api/products/${slug} | DB Query: ${(dbFinish - dbStart).toFixed(2)}ms | Total Route: ${(resSend - reqStart).toFixed(2)}ms`);
 
     return res.status(200).json(product);
   } catch (err) {
@@ -3244,8 +3252,8 @@ app.delete('/api/admin/campaigns/:id', requireAuth, requireAdmin, async (req, re
 });
 
 // Start listening
-app.listen(PORT, async () => {
-  console.log(`Express API server running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', async () => {
+  console.log(`Express API server running on http://0.0.0.0:${PORT}`);
   
   // Run startup database and schema verification
   await verifyDatabaseSchema();

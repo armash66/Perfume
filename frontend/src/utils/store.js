@@ -358,10 +358,13 @@ export const WishlistStore = {
   },
 
   toggle(itemId) {
-    const exists = wishlistState.includes(itemId);
+    if (!itemId) return false;
+    const id = String(itemId);
+    const uniqueList = [...new Set(wishlistState.map(String))];
+    const exists = uniqueList.includes(id);
     const updated = exists 
-      ? wishlistState.filter(id => id !== itemId) 
-      : [...wishlistState, itemId];
+      ? uniqueList.filter(x => x !== id) 
+      : [...uniqueList, id];
     this.save(updated);
     return !exists; // returns true if added, false if removed
   }

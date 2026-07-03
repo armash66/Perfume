@@ -294,16 +294,38 @@ export default function SignatureCollection({
             items = items.filter(item => item.category === currentCategory || (currentCategory === 'full-bottles' && (item.category === 'fullbottles' || item.category === 'full-bottles')));
           }
         } else {
-          // Tag-based or custom collections filtering
+          // Tag-based or custom collections filtering (e.g. summer, winter, him, her)
           let tagToSearch = currentCategory;
           if (currentCategory === 'for-him' || currentCategory === 'him') tagToSearch = 'him';
           else if (currentCategory === 'for-her' || currentCategory === 'her') tagToSearch = 'her';
           else if (currentCategory === 'newarrivals' || currentCategory === 'new-arrivals') tagToSearch = 'new-arrival';
           else if (currentCategory === 'bestsellers' || currentCategory === 'best-sellers') tagToSearch = 'featured';
 
+          // Resolve matching category in the database
+          const matchedCat = dbCategories.find(c => 
+            c.slug === currentCategory || 
+            (currentCategory === 'him' && c.slug === 'for-him') ||
+            (currentCategory === 'for-him' && c.slug === 'him') ||
+            (currentCategory === 'her' && c.slug === 'for-her') ||
+            (currentCategory === 'for-her' && c.slug === 'her') ||
+            (currentCategory === 'newarrivals' && c.slug === 'new-arrivals') ||
+            (currentCategory === 'bestsellers' && c.slug === 'best-sellers')
+          );
+
           items = items.filter(item => {
-            if (item.tags && item.tags.includes(tagToSearch)) return true;
-            // Handle fallback tags/properties
+            // Match database category by ID or Slug
+            if (matchedCat && (item.categoryId === matchedCat.id || item.category === matchedCat.slug)) {
+              return true;
+            }
+            // Direct slug string match
+            if (item.category === currentCategory) {
+              return true;
+            }
+            // Fallback tags matching
+            if (item.tags && item.tags.includes(tagToSearch)) {
+              return true;
+            }
+            // Fallback for custom metadata/featured flags
             if (tagToSearch === 'new-arrival' && item.featured) return true;
             if (tagToSearch === 'featured' && item.featured) return true;
             return false;
@@ -965,9 +987,23 @@ export default function SignatureCollection({
                       <span className="text-[0.62rem] font-bold tracking-widest uppercase px-3 py-1 rounded-none inline-block mb-4" style={{ color: '#8B672F', backgroundColor: 'rgba(139,103,47,0.08)' }}>
                         {selectedItem.category === 'decants' ? 'Decant Scent' : selectedItem.category === 'sets' ? 'Collection Set' : 'Retail Bottle'}
                       </span>
-                      <h2 className="font-heading text-3xl font-light mb-2 tracking-wide leading-tight" style={{ color: '#2C2926' }}>
-                        {selectedItem.name}
-                      </h2>
+                      <div className="flex justify-between items-start gap-4 mb-2">
+                        <h2 className="font-heading text-3xl font-light tracking-wide leading-tight" style={{ color: '#2C2926', margin: 0 }}>
+                          {selectedItem.name}
+                        </h2>
+                        <button
+                          onClick={(e) => toggleWishlist(selectedItem.id, e)}
+                          className="w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-300 hover:scale-105 shadow-sm cursor-pointer min-w-[36px] flex-shrink-0"
+                          style={{
+                            borderColor: wishlist.includes(selectedItem.id) ? 'rgba(255, 0, 60, 0.3)' : '#D8D1C7',
+                            backgroundColor: wishlist.includes(selectedItem.id) ? 'rgba(255, 0, 60, 0.05)' : '#FEFCF9',
+                            color: wishlist.includes(selectedItem.id) ? '#FF003C' : '#2C2926'
+                          }}
+                          aria-label="Toggle wishlist"
+                        >
+                          <i className={`${wishlist.includes(selectedItem.id) ? 'fas fa-heart text-[#FF003C]' : 'far fa-heart'}`} />
+                        </button>
+                      </div>
                       <p className="text-[0.78rem] italic tracking-wide mb-4" style={{ color: '#8B672F' }}>
                         {selectedItem.tagline}
                       </p>
