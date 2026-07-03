@@ -52,9 +52,10 @@ async function main() {
       continue;
     }
 
-    // 3. Create a bottle to cover legacy stock cache
-    const initialRemaining = Math.max(100, totalMLCover);
-    const bottleSize = Math.max(100, totalMLCover);
+    // 3. Create a 100ml bottle (matches DEFAULT_BOTTLE_SIZE_ML) to cover legacy stock
+    const DEFAULT_ML = 100;
+    const initialRemaining = Math.max(DEFAULT_ML, totalMLCover);
+    const bottleSize = Math.max(DEFAULT_ML, totalMLCover);
 
     console.log(`  - Creating initial bottle: Size = ${bottleSize}ml, Remaining = ${initialRemaining}ml`);
 

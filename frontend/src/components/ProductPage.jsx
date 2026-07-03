@@ -300,7 +300,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
   }, [cartQuantity, product, selectedSizeIndex]);
 
   const handleDecrease = () => {
-    setSelectedQty(prev => Math.max(0, prev - 1));
+    setSelectedQty(prev => Math.max(1, prev - 1));
   };
 
   const handleIncrease = () => {
@@ -1114,47 +1114,61 @@ export default function ProductPage({ product: initialProduct, products = [], on
                 </div>
               )}
 
-              {/* Quantity + Availability */}
-              <div className="pdp-qty-avail-row">
-                <div className="pdp-qty-group">
-                  <span className="pdp-field-label" style={{ marginBottom: '0' }}>Quantity</span>
-                  {selectedOption && selectedOption.stock > 0 ? (
-                    <div className="pdp-qty-stepper" role="group" aria-label="Quantity selector">
-                      <button
-                        onClick={handleDecrease}
-                        disabled={selectedQty <= 0 || isAdding}
-                        className="pdp-qty-btn"
-                        aria-label="Decrease quantity"
-                      >
-                        <i className="fas fa-minus" style={{ fontSize: '0.7rem', pointerEvents: 'none' }} aria-hidden="true" />
-                      </button>
-                      <span className="pdp-qty-value" aria-live="polite" aria-label={`Quantity: ${selectedQty}`}>
-                        {selectedQty}
+              {/* ── Inventory & Quantity ── */}
+              {(() => {
+                const currentStock = selectedOption ? (selectedOption.stock || 0) : 0;
+                const LOW_STOCK_THRESHOLD = 5;
+                const isLowStock = currentStock > 0 && currentStock <= LOW_STOCK_THRESHOLD;
+                const stockStatus = currentStock <= 0 ? 'out-of-stock' : isLowStock ? 'low-stock' : 'in-stock';
+                return (
+                  <div className="pdp-inventory-row">
+                    {/* Availability */}
+                    <div className="pdp-availability">
+                      <span className="pdp-field-label" style={{ marginBottom: 0 }}>Availability</span>
+                      <span className={`pdp-avail-badge pdp-avail-badge--${stockStatus}`} role="status">
+                        <i className={`fas ${stockStatus === 'in-stock' ? 'fa-circle-check' : stockStatus === 'low-stock' ? 'fa-triangle-exclamation' : 'fa-circle-xmark'}`} aria-hidden="true" />
+                        {stockStatus === 'in-stock' ? 'In Stock' : stockStatus === 'low-stock' ? 'Low Stock' : 'Out of Stock'}
                       </span>
-                      <button
-                        onClick={handleIncrease}
-                        disabled={isAdding}
-                        className="pdp-qty-btn"
-                        aria-label="Increase quantity"
-                      >
-                        <i className="fas fa-plus" style={{ fontSize: '0.7rem', pointerEvents: 'none' }} aria-hidden="true" />
-                      </button>
                     </div>
-                  ) : (
-                    <span className="pdp-sold-out-label" role="status">Sold Out</span>
-                  )}
-                </div>
 
-                <div className="pdp-avail-group">
-                  <span className="pdp-avail-label">Availability</span>
-                  <span
-                    className={`pdp-avail-status ${selectedOption && selectedOption.stock > 0 ? 'pdp-avail-status--instock' : 'pdp-avail-status--outofstock'}`}
-                    role="status"
-                  >
-                    {selectedOption ? 'In Stock' : 'Unavailable'}
-                  </span>
-                </div>
-              </div>
+                    {/* Available Quantity */}
+                    <div className="pdp-available-quantity" style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                      <span className="pdp-field-label" style={{ marginBottom: 0 }}>Available Quantity</span>
+                      <span className="pdp-stock-count" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1C1B18', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {currentStock} {currentStock === 1 ? 'unit' : 'units'}
+                      </span>
+                    </div>
+
+                    {/* Quantity Stepper — only when in stock */}
+                    {currentStock > 0 && (
+                      <div className="pdp-qty-group">
+                        <span className="pdp-field-label" style={{ marginBottom: 0 }}>Quantity</span>
+                        <div className="pdp-qty-stepper" role="group" aria-label="Quantity selector">
+                          <button
+                            onClick={handleDecrease}
+                            disabled={selectedQty <= 1 || isAdding}
+                            className="pdp-qty-btn"
+                            aria-label="Decrease quantity"
+                          >
+                            <i className="fas fa-minus" style={{ fontSize: '0.7rem', pointerEvents: 'none' }} aria-hidden="true" />
+                          </button>
+                          <span className="pdp-qty-value" aria-live="polite" aria-label={`Quantity: ${selectedQty}`}>
+                            {selectedQty}
+                          </span>
+                          <button
+                            onClick={handleIncrease}
+                            disabled={isAdding || selectedQty >= currentStock}
+                            className="pdp-qty-btn"
+                            aria-label="Increase quantity"
+                          >
+                            <i className="fas fa-plus" style={{ fontSize: '0.7rem', pointerEvents: 'none' }} aria-hidden="true" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* ── Add to Bag CTA ── */}
               <button

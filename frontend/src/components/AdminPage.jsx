@@ -2165,18 +2165,26 @@ export default function AdminPage() {
                           <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>ID: {item.id}</div>
                         </td>
                         <td>
-                          <div style={{ fontWeight: 600, color: '#1c1917' }}>{item.bottleLabel}</div>
-                          {item.batchNumber && <div style={{ fontSize: '0.68rem', color: '#444' }}>Batch: {item.batchNumber}</div>}
-                          {item.supplier && <div style={{ fontSize: '0.68rem', color: '#666' }}>Supplier: {item.supplier}</div>}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Bottle</div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1c1917' }}>{item.bottleSizeML}ml</div>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563' }}>{item.bottleLabel}</div>
+                            {item.batchNumber && <div style={{ fontSize: '0.68rem', color: '#6b7280' }}>Batch: {item.batchNumber}</div>}
+                            {item.supplier && <div style={{ fontSize: '0.68rem', color: '#6b7280' }}>Supplier: {item.supplier}</div>}
+                          </div>
                         </td>
                         <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '220px' }}>
-                            <div style={{ flexGrow: 1, height: '10px', backgroundColor: '#e5e7eb', borderRadius: '5px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.05)' }}>
-                              <div style={{ width: `${percent}%`, height: '100%', backgroundColor: barColor, transition: 'width 0.4s ease' }} />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Remaining</div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: barColor }}>{item.remainingML}ml</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '180px', marginTop: '0.125rem' }}>
+                              <div style={{ flexGrow: 1, height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.05)' }}>
+                                <div style={{ width: `${percent}%`, height: '100%', backgroundColor: barColor, transition: 'width 0.4s ease' }} />
+                              </div>
+                              <span style={{ fontSize: '0.68rem', fontFamily: 'monospace', fontWeight: 600, color: '#4b5563' }}>
+                                {percent}%
+                              </span>
                             </div>
-                            <span style={{ fontSize: '0.72rem', fontFamily: 'monospace', fontWeight: 600, minWidth: '95px', textAlign: 'right' }}>
-                              {item.remainingML} / {item.bottleSizeML} ml ({percent}%)
-                            </span>
                           </div>
                         </td>
                         <td>
@@ -2188,11 +2196,11 @@ export default function AdminPage() {
                           {item.status === 'RETIRED' ? (
                             <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Retired</span>
                           ) : (
-                            <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', maxWidth: '200px' }}>
-                              <span className="admin-badge standard" style={{ fontSize: '0.68rem' }}>5ml: {Math.floor(item.remainingML / 5)}</span>
-                              <span className="admin-badge standard" style={{ fontSize: '0.68rem' }}>10ml: {Math.floor(item.remainingML / 10)}</span>
-                              <span className="admin-badge standard" style={{ fontSize: '0.68rem' }}>20ml: {Math.floor(item.remainingML / 20)}</span>
-                              <span className="admin-badge standard" style={{ fontSize: '0.68rem' }}>30ml: {Math.floor(item.remainingML / 30)}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: '160px' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#4b5563' }}>5ml decants available: <strong style={{ color: '#1c1917', fontSize: '0.76rem' }}>{Math.floor(item.remainingML / 5)}</strong></div>
+                              <div style={{ fontSize: '0.72rem', color: '#4b5563' }}>10ml decants available: <strong style={{ color: '#1c1917', fontSize: '0.76rem' }}>{Math.floor(item.remainingML / 10)}</strong></div>
+                              <div style={{ fontSize: '0.72rem', color: '#4b5563' }}>20ml decants available: <strong style={{ color: '#1c1917', fontSize: '0.76rem' }}>{Math.floor(item.remainingML / 20)}</strong></div>
+                              <div style={{ fontSize: '0.72rem', color: '#4b5563' }}>30ml decants available: <strong style={{ color: '#1c1917', fontSize: '0.76rem' }}>{Math.floor(item.remainingML / 30)}</strong></div>
                             </div>
                           )}
                         </td>

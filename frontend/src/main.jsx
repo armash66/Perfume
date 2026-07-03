@@ -5,20 +5,18 @@ import { ClerkProvider } from '@clerk/clerk-react'
 import './index.css'
 import App from './App.jsx'
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!PUBLISHABLE_KEY) {
-  console.warn("VITE_CLERK_PUBLISHABLE_KEY is not defined. Using a placeholder key for local development to prevent crashes.");
+  console.warn("VITE_CLERK_PUBLISHABLE_KEY environment variable is missing.");
 }
-
-const clerkKey = PUBLISHABLE_KEY || 'pk_test_YWN0aXZlLW1hcm1vc2V0LTkxLmNsZXJrLmFjY291bnRzLmRldiQ';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <ClerkProvider publishableKey={clerkKey}>
+      <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
         <App />
       </ClerkProvider>
     </BrowserRouter>
   </StrictMode>,
-)
+);

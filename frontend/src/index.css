@@ -1664,21 +1664,72 @@ html {
   letter-spacing: 0.02em;
 }
 
-/* ── Quantity + Availability Row ── */
-.pdp-qty-avail-row {
+/* ── Inventory & Quantity Row ── */
+.pdp-inventory-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
 }
 
 @media (max-width: 479px) {
-  .pdp-qty-avail-row {
+  .pdp-inventory-row {
     flex-direction: column;
     align-items: flex-start;
     gap: 1.25rem;
   }
+}
+
+.pdp-availability {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.pdp-avail-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 20px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+  width: fit-content;
+}
+
+.pdp-avail-badge i {
+  font-size: 0.6rem;
+}
+
+.pdp-avail-badge--in-stock {
+  background: rgba(39, 174, 96, 0.08);
+  color: #1a8a4a;
+  border: 1px solid rgba(39, 174, 96, 0.18);
+}
+
+.pdp-avail-badge--low-stock {
+  background: rgba(211, 153, 36, 0.08);
+  color: #b5850a;
+  border: 1px solid rgba(211, 153, 36, 0.18);
+}
+
+.pdp-avail-badge--out-of-stock {
+  background: rgba(192, 57, 43, 0.06);
+  color: #c0392b;
+  border: 1px solid rgba(192, 57, 43, 0.15);
+}
+
+.pdp-stock-count {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(28, 27, 24, 0.55);
 }
 
 .pdp-qty-group {
@@ -1735,7 +1786,6 @@ html {
 
 .pdp-qty-value {
   flex: 1;
-  /* Perfect vertical + horizontal centering */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1749,41 +1799,6 @@ html {
   border-right: 1px solid rgba(28, 27, 24, 0.10);
   padding: 0 0.25rem;
 }
-
-/* ── Availability Badge ── */
-.pdp-avail-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  text-align: right;
-}
-
-@media (max-width: 479px) {
-  .pdp-avail-group {
-    text-align: left;
-    align-items: flex-start;
-  }
-}
-
-.pdp-avail-label {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.575rem;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(28, 27, 24, 0.55);
-}
-
-.pdp-avail-status {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.pdp-avail-status--instock { color: #8B672F; }
-.pdp-avail-status--outofstock { color: #c0392b; }
 
 /* ── Add to Bag CTA ── */
 .pdp-add-to-bag {
@@ -2151,18 +2166,6 @@ html {
   line-height: 1.6;
 }
 
-/* ── Sold Out inline state ── */
-.pdp-sold-out-label {
-  display: flex;
-  align-items: center;
-  height: 48px;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #c0392b;
-}
 
 /* ── Loading Spinner ── */
 .pdp-loading {

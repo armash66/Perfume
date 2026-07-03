@@ -31,6 +31,8 @@ const razorpay = new Razorpay({
   key_secret: cleanEnvVar(process.env.RAZORPAY_KEY_SECRET),
 });
 
+// Configurable default bottle size in ML — used when auto-creating BottleInventory
+const DEFAULT_BOTTLE_SIZE_ML = parseInt(process.env.DEFAULT_BOTTLE_SIZE_ML) || 100;
 
 const clerkClient = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY,
@@ -215,13 +217,12 @@ app.post('/api/webhooks/clerk', express.raw({ type: 'application/json' }), async
 app.use(express.json());
 
 // Set up Clerk Node SDK auth middleware
-if (process.env.CLERK_SECRET_KEY && (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISHABLE_KEY)) {
+if (process.env.CLERK_SECRET_KEY) {
   app.use(ClerkExpressWithAuth({
-    secretKey: process.env.CLERK_SECRET_KEY,
-    publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISHABLE_KEY
+    secretKey: process.env.CLERK_SECRET_KEY
   }));
 } else {
-  console.warn("\n[WARNING] CLERK_SECRET_KEY or CLERK_PUBLISHABLE_KEY is missing. Running in local dev-mode with mock authentication.\n");
+  console.warn("\n[WARNING] CLERK_SECRET_KEY is missing. Running in local dev-mode with mock authentication.\n");
   app.use(async (req, res, next) => {
     try {
       const firstUser = await prisma.user.findFirst();
@@ -831,19 +832,22 @@ app.post('/api/orders', requireAuth, async (req, res) => {
         }
       });
 
-      // 3. Deduct stock from BottleInventory and log InventoryMovement
-      for (const item of items) {
-        const variant = await tx.productVariant.findUnique({
-          where: { id: item.variantId }
-        });
-        
-        await deductFromBottle(
-          tx,
-          item.productId || item.id,
-          variant.volumeML,
-          item.quantity,
-          newOrder.id
-        );
+      // 3. Deduct stock ONLY for COD orders (immediately confirmed).
+      //    Razorpay orders deduct upon payment verification.
+      if (paymentMethod === 'COD') {
+        for (const item of items) {
+          const variant = await tx.productVariant.findUnique({
+            where: { id: item.variantId }
+          });
+          
+          await deductFromBottle(
+            tx,
+            item.productId || item.id,
+            variant.volumeML,
+            item.quantity,
+            newOrder.id
+          );
+        }
       }
 
       // 4. Initialize Payment record
@@ -875,7 +879,7 @@ app.post('/api/orders', requireAuth, async (req, res) => {
     if (paymentMethod === 'RAZORPAY') {
       const amountPaise = Math.round(total * 100);
       if (amountPaise < 100) {
-        // Roll back database changes for invalid amount
+        // Roll back database changes for invalid amount (no stock was deducted for Razorpay)
         await prisma.$transaction(async (tx) => {
           await tx.order.update({
             where: { id: order.id },
@@ -885,21 +889,6 @@ app.post('/api/orders', requireAuth, async (req, res) => {
             where: { orderId: order.id },
             data: { status: 'FAILED' }
           });
-          
-          for (const item of order.orderItems) {
-            const variant = await tx.productVariant.findUnique({
-              where: { id: item.variantId }
-            });
-            if (variant) {
-              await restoreToBottle(
-                tx,
-                variant.productId,
-                variant.volumeML,
-                item.quantity,
-                order.id
-              );
-            }
-          }
         }, {
           timeout: 15000
         });
@@ -934,6 +923,7 @@ app.post('/api/orders', requireAuth, async (req, res) => {
         console.error('============================================');
         
         // Roll back database changes since external payment gateway order creation failed
+        // No stock restoration needed — Razorpay orders don't deduct until payment verified
         await prisma.$transaction(async (tx) => {
           await tx.order.update({
             where: { id: order.id },
@@ -943,22 +933,6 @@ app.post('/api/orders', requireAuth, async (req, res) => {
             where: { orderId: order.id },
             data: { status: 'FAILED' }
           });
-          
-          // Restore variant stock
-          for (const item of order.orderItems) {
-            const variant = await tx.productVariant.findUnique({
-              where: { id: item.variantId }
-            });
-            if (variant) {
-              await restoreToBottle(
-                tx,
-                variant.productId,
-                variant.volumeML,
-                item.quantity,
-                order.id
-              );
-            }
-          }
         }, {
           timeout: 15000
         });
@@ -1100,14 +1074,13 @@ app.post('/api/payments/verify', requireAuth, async (req, res) => {
       .digest('hex');
 
     if (generatedSignature !== razorpaySignature) {
-      // Signature mismatch - cancel order and restore stock inside transaction
+      // Signature mismatch — cancel order (no stock was deducted for Razorpay)
       await prisma.$transaction(async (tx) => {
         const txOrder = await tx.order.findUnique({
           where: { id: orderId },
-          include: { payment: true, orderItems: true }
+          include: { payment: true }
         });
 
-        // Double stock restoration check: skip if already failed/cancelled
         if (!txOrder || txOrder.status === 'CANCELLED' || txOrder.payment?.status === 'FAILED') {
           return;
         }
@@ -1121,14 +1094,32 @@ app.post('/api/payments/verify', requireAuth, async (req, res) => {
           where: { orderId: orderId },
           data: { status: 'FAILED' }
         });
+      }, {
+        timeout: 15000
+      });
+      return res.status(400).json({ error: 'Payment signature verification failed. Possible fraud.' });
+    }
 
-        // Restore variant stock
+    // Verification successful — deduct inventory and confirm order
+    try {
+      await prisma.$transaction(async (tx) => {
+        const txOrder = await tx.order.findUnique({
+          where: { id: orderId },
+          include: { payment: true, orderItems: true }
+        });
+
+        if (!txOrder || txOrder.status === 'CONFIRMED' || txOrder.payment?.status === 'SUCCESS') {
+          return;
+        }
+
+        // Deduct stock from BottleInventory now that payment is confirmed.
+        // deductFromBottle throws if insufficient stock (race condition guard).
         for (const item of txOrder.orderItems) {
           const variant = await tx.productVariant.findUnique({
             where: { id: item.variantId }
           });
           if (variant) {
-            await restoreToBottle(
+            await deductFromBottle(
               tx,
               variant.productId,
               variant.volumeML,
@@ -1137,43 +1128,48 @@ app.post('/api/payments/verify', requireAuth, async (req, res) => {
             );
           }
         }
+
+        await tx.order.update({
+          where: { id: orderId },
+          data: { status: 'CONFIRMED' }
+        });
+
+        await tx.payment.update({
+          where: { orderId: orderId },
+          data: {
+            status: 'SUCCESS',
+            transactionId: razorpayPaymentId,
+            paidAt: new Date()
+          }
+        });
+
+        await tx.cartItem.deleteMany({
+          where: { userId: dbUser.id }
+        });
       }, {
         timeout: 15000
       });
-      return res.status(400).json({ error: 'Payment signature verification failed. Possible fraud.' });
-    }
-
-    // Verification successful - update order and payment inside transaction
-    await prisma.$transaction(async (tx) => {
-      const txOrder = await tx.order.findUnique({
-        where: { id: orderId },
-        include: { payment: true }
-      });
-
-      if (!txOrder || txOrder.status === 'CONFIRMED' || txOrder.payment?.status === 'SUCCESS') {
-        return;
+    } catch (stockErr) {
+      // Inventory was sold out between order creation and payment — cancel gracefully
+      if (stockErr.message && stockErr.message.includes('Insufficient stock')) {
+        console.error(`Insufficient stock during payment verification for order ${orderId}:`, stockErr.message);
+        await prisma.$transaction(async (tx) => {
+          await tx.order.update({
+            where: { id: orderId },
+            data: { status: 'CANCELLED' }
+          });
+          await tx.payment.update({
+            where: { orderId: orderId },
+            data: { status: 'FAILED' }
+          });
+        }, { timeout: 10000 });
+        return res.status(409).json({
+          error: 'Insufficient stock',
+          message: 'The items in your order are no longer available. Your payment will be refunded. Please try again with available quantities.'
+        });
       }
-
-      await tx.order.update({
-        where: { id: orderId },
-        data: { status: 'CONFIRMED' }
-      });
-
-      await tx.payment.update({
-        where: { orderId: orderId },
-        data: {
-          status: 'SUCCESS',
-          transactionId: razorpayPaymentId,
-          paidAt: new Date()
-        }
-      });
-
-      await tx.cartItem.deleteMany({
-        where: { userId: dbUser.id }
-      });
-    }, {
-      timeout: 15000
-    });
+      throw stockErr; // re-throw unexpected errors to be caught by outer catch
+    }
 
     return res.status(200).json({ success: true, message: 'Payment verified and order confirmed.' });
   } catch (err) {
@@ -1208,11 +1204,12 @@ app.post('/api/payments/fail', requireAuth, async (req, res) => {
       return res.status(200).json({ success: true, message: 'Payment already recorded as failed/cancelled.' });
     }
 
-    // Cancel order and restore stock inside transaction
+    // Cancel order — no stock restoration needed since Razorpay orders
+    // don't deduct inventory until payment is verified
     await prisma.$transaction(async (tx) => {
       const txOrder = await tx.order.findUnique({
         where: { id: orderId },
-        include: { payment: true, orderItems: true }
+        include: { payment: true }
       });
 
       if (!txOrder || txOrder.status === 'CANCELLED' || txOrder.payment?.status === 'FAILED') {
@@ -1228,27 +1225,11 @@ app.post('/api/payments/fail', requireAuth, async (req, res) => {
         where: { orderId },
         data: { status: 'FAILED' }
       });
-
-      // Restore variant stock
-      for (const item of txOrder.orderItems) {
-        const variant = await tx.productVariant.findUnique({
-          where: { id: item.variantId }
-        });
-        if (variant) {
-          await restoreToBottle(
-            tx,
-            variant.productId,
-            variant.volumeML,
-            item.quantity,
-            orderId
-          );
-        }
-      }
     }, {
       timeout: 15000
     });
 
-    return res.status(200).json({ success: true, message: 'Payment recorded as failed and stock restored.' });
+    return res.status(200).json({ success: true, message: 'Payment recorded as failed.' });
   } catch (err) {
     console.error('Failed to record payment failure:', err);
     return res.status(500).json({ error: 'Failed to record payment failure' });
@@ -1641,6 +1622,21 @@ app.post('/api/products', requireAuth, requireAdmin, async (req, res) => {
           variants: true
         }
       });
+
+      // Auto-create one BottleInventory record so the product has stock
+      await tx.bottleInventory.create({
+        data: {
+          productId: product.id,
+          bottleLabel: 'Bottle #001',
+          bottleSizeML: DEFAULT_BOTTLE_SIZE_ML,
+          remainingML: DEFAULT_BOTTLE_SIZE_ML,
+          status: 'OPEN',
+        }
+      });
+
+      // Recompute variant stock from the new bottle
+      await recomputeVariantStock(tx, product.id);
+
       return product;
     });
 
@@ -3291,7 +3287,6 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log('\n====== CLERK AUTH PROCESS CONFIGURATION ======');
   console.log('CLERK_SECRET_KEY Present:', !!process.env.CLERK_SECRET_KEY);
   console.log('CLERK_SECRET_KEY Value:', process.env.CLERK_SECRET_KEY);
-  console.log('CLERK_PUBLISHABLE_KEY:', process.env.CLERK_PUBLISHABLE_KEY);
   console.log('Current Cwd:', process.cwd());
   console.log('==============================================\n');
 
