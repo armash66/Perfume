@@ -1244,10 +1244,6 @@ body.marquee-hidden .main-content-padding {
     display: flex;
     align-items: center;
   }
-  /* Only hide profile on mobile — cart & wishlist MUST remain accessible */
-  .nav-profile-btn {
-    display: none !important;
-  }
   .nav-icon-btn {
     min-width: 44px;
     min-height: 44px;
