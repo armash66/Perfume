@@ -1483,8 +1483,8 @@ html {
   position: fixed;
   inset: 0;
   background-color: rgba(28, 27, 24, 0.35); /* Elegant light warm charcoal layer */
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
