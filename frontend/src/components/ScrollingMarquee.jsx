@@ -3,7 +3,7 @@ import './ScrollingMarquee.css';
 
 export default function ScrollingMarquee() {
   const items = [
-    "FREE SHIPPING ON ORDERS OVER ₹999",
+    "STANDARD ATELIER DELIVERY AT ₹149",
     "100% ORIGINAL AUTHENTIC FRAGRANCES",
     "LUXURY NICHE & DESIGNER DECANTS",
     "SECURE CHECKOUT & FAST DISPATCH",

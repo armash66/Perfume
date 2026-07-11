@@ -86,9 +86,9 @@ const policiesData = [
           'We ship pan-India via trusted courier partners. Standard delivery takes 4–7 business days depending on your location. Metro cities typically receive orders within 3–5 business days. Shipping charges are calculated at checkout based on order weight and destination.',
       },
       {
-        heading: 'Free Shipping',
+        heading: 'Standard Delivery Rate',
         content:
-          'Orders above ₹999 qualify for free standard shipping across India. This threshold may vary during promotional periods.',
+          'Standard Atelier Delivery is available pan-India at a flat rate of ₹149.',
       },
       {
         heading: 'Packaging Standards',

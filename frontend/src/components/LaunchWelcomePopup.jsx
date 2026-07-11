@@ -91,7 +91,7 @@ export default function LaunchWelcomePopup() {
           {isPreLaunch ? (
             <>
               Welcome to Decant Atelier. Our Launch Collection officially opens on
-              <strong className="launch-popup-highlight"> Sunday at 2:30 PM IST</strong>.
+              <strong className="launch-popup-highlight"> Sunday at 2:00 PM IST</strong>.
               <br />
               For the first 48 hours after launch, exclusive introductory pricing will be available.
             </>

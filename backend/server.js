@@ -671,7 +671,7 @@ function computeShippingFee(shippingMethod, subtotal, threshold, standardCharge)
     case 'OWNER':   return 5000;
     case 'STANDARD':
     default:
-      return subtotal >= threshold ? 0 : 199;
+      return standardCharge;
   }
 }
 
@@ -3272,7 +3272,7 @@ app.listen(PORT, '0.0.0.0', async () => {
           supportEmail: 'concierge@decantatelier.com',
           supportPhone: '+91 97681 88453',
           codEnabled: true,
-          shippingCharges: 199,
+          shippingCharges: 149,
           freeShippingThreshold: 1999,
           razorpayKey: keyId,
           razorpaySecret: keySecret

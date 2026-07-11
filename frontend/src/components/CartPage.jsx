@@ -304,10 +304,9 @@ export default function CartPage({ onBackToShop, products = [] }) {
     if (subtotal === 0) return 0;
     if (deliveryMethod === 'EXPRESS') return 399;
     if (deliveryMethod === 'OWNER') return 5000;
-    // STANDARD: standard charge is 199 by default, free above threshold
-    const threshold = storeSettings ? parseFloat(storeSettings.freeShippingThreshold) : 1999;
-    const charge = storeSettings ? parseFloat(storeSettings.shippingCharges) : 199;
-    return subtotal >= threshold ? 0 : charge;
+    // STANDARD: standard charge is 149
+    const charge = storeSettings ? parseFloat(storeSettings.shippingCharges) : 149;
+    return charge;
   }, [subtotal, deliveryMethod, storeSettings]);
 
   const grandTotal = subtotal + shipping;
@@ -350,23 +349,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
           </div>
         </div>
 
-        {/* Free delivery promo banner */}
-        {subtotal > 0 && !isCheckingOut && (
-          <div className="summary-promo-banner mb-6">
-            {subtotal >= FREE_SHIPPING_THRESHOLD ? (
-              <div className="text-[0.62rem] font-bold text-center text-[#8B672F] tracking-wider uppercase py-1">
-                <i className="fas fa-circle-check mr-1"></i> Complimentary Shipping Unlocked
-              </div>
-            ) : (
-              <div className="flex justify-between items-center text-[0.62rem] font-bold text-black/60 tracking-wider uppercase">
-                <span>Add ₹{(FREE_SHIPPING_THRESHOLD - subtotal).toLocaleString('en-IN')} for Free Delivery</span>
-                <button onClick={handleBackToShop} className="underline text-[#8B672F] hover:text-[#1C1B18] cursor-pointer">
-                  Add
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+
 
         <div className="border-t border-black/8 pt-6 mb-8 flex justify-between items-center">
           <span className="font-body text-xs font-bold tracking-wider uppercase">Total</span>
@@ -982,27 +965,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
               /* SHOPPING BAG PRODUCT LIST */
               <div className="space-y-6">
                 
-                {/* Visual Progress Bar for Free Shipping */}
-                <div className="bg-[#FEFCF9] border border-black/5 p-6 mb-4 text-left shadow-sm">
-                  <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider mb-2">
-                    <span>
-                      {subtotal >= FREE_SHIPPING_THRESHOLD ? (
-                        <span className="text-[#8B672F]">✦ Congratulations! You qualify for Free Shipping</span>
-                      ) : (
-                        `Add ₹${(FREE_SHIPPING_THRESHOLD - subtotal).toLocaleString('en-IN')} more for Free Shipping`
-                      )}
-                    </span>
-                    <span className="text-black/50">
-                      {Math.min(100, Math.round((subtotal / FREE_SHIPPING_THRESHOLD) * 100))}%
-                    </span>
-                  </div>
-                  <div className="free-shipping-progress">
-                    <div 
-                      className="free-shipping-progress-bar" 
-                      style={{ width: `${Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100)}%` }}
-                    />
-                  </div>
-                </div>
+
 
                 <div className="bag-items-list divide-y divide-black/8">
                   {cartItems.map((item) => {
@@ -1398,24 +1361,11 @@ export default function CartPage({ onBackToShop, products = [] }) {
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-xs font-bold">Standard Atelier Delivery</span>
                           <span className="text-xs font-bold text-[#8B672F]">
-                            {subtotal >= FREE_SHIPPING_THRESHOLD ? 'FREE' : `₹${storeSettings ? parseFloat(storeSettings.shippingCharges) : 199}`}
+                            ₹{storeSettings ? parseFloat(storeSettings.shippingCharges) : 149}
                           </span>
                         </div>
                         <p className="text-[0.68rem] text-black/60 leading-relaxed font-body">
-                          Complimentary for orders over ₹{FREE_SHIPPING_THRESHOLD}. Arrives in 9 business days.
-                        </p>
-                      </div>
-
-                      <div 
-                        onClick={() => setDeliveryMethod('EXPRESS')}
-                        className={`delivery-option-box ${deliveryMethod === 'EXPRESS' ? 'active' : ''}`}
-                      >
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-xs font-bold">Express Direct Air courier</span>
-                          <span className="text-xs font-bold text-[#8B672F]">₹399</span>
-                        </div>
-                        <p className="text-[0.68rem] text-black/60 leading-relaxed font-body">
-                          Guaranteed priority shipment. Arrives in 3 business days.
+                          Arrives in 9 business days.
                         </p>
                       </div>
 
@@ -1572,7 +1522,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
                               {deliveryMethod === 'OWNER' && 'Owner Hand-Delivery'}
                             </span>
                             <span className="text-[0.68rem] text-black/50 block mt-0.5">
-                              {deliveryMethod === 'STANDARD' && (subtotal >= FREE_SHIPPING_THRESHOLD ? 'Free Shipping (Arrives in 9 days)' : `₹${shipping.toLocaleString('en-IN')} (Arrives in 9 days)`)}
+                              {deliveryMethod === 'STANDARD' && `₹${shipping.toLocaleString('en-IN')} (Arrives in 9 days)`}
                               {deliveryMethod === 'EXPRESS' && `₹399 (Arrives in 3 days)`}
                               {deliveryMethod === 'OWNER' && `₹5,000 (Hand-delivered)`}
                             </span>

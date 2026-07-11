@@ -6,18 +6,18 @@ dotenv.config();
 async function main() {
   await prisma.storeSetting.upsert({
     where: { id: 'default' },
-    update: { shippingCharges: 199 },
+    update: { shippingCharges: 149 },
     create: {
       id: 'default',
       storeName: 'Decant Atelier',
       supportEmail: 'concierge@decantatelier.com',
       supportPhone: '+91 97681 88453',
       codEnabled: true,
-      shippingCharges: 199,
+      shippingCharges: 149,
       freeShippingThreshold: 1999
     }
   });
-  console.log('Successfully updated database store settings shippingCharges to 199.');
+  console.log('Successfully updated database store settings shippingCharges to 149.');
 }
 
 main()
