@@ -93,13 +93,13 @@ export default function LaunchWelcomePopup() {
               Welcome to Decant Atelier. Our Launch Collection officially opens on
               <strong className="launch-popup-highlight"> Sunday at 2:00 PM IST</strong>.
               <br />
-              For the first 48 hours after launch, exclusive introductory pricing will be available.
+              For the first 36 hours after launch, exclusive introductory pricing will be available.
             </>
           ) : (
             <>
               Our Launch Collection is now live.
               <br /><br />
-              To celebrate our launch, enjoy exclusive introductory pricing for the next 48 hours. Discover our curated collection while the launch event is live.
+              To celebrate our launch, enjoy exclusive introductory pricing for the next 36 hours. Discover our curated collection while the launch event is live.
             </>
           )}
         </p>
