@@ -653,8 +653,16 @@ export default function SignatureCollection({
             </p>
             <button
               onClick={onRetry}
-              className="px-6 py-2.5 bg-[#1C1B18] text-white text-[11px] font-bold tracking-widest uppercase hover:bg-[#8B672F] transition-colors"
-              style={{ minHeight: '40px' }}
+              className="px-6 py-2.5 rounded-none text-[11px] font-bold tracking-widest uppercase transition-colors duration-300 cursor-pointer"
+              style={{
+                minHeight: '40px',
+                backgroundColor: '#1C1B18',
+                color: '#FEFCF9',
+                border: 'none',
+                outline: 'none'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#8B672F'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#1C1B18'; }}
             >
               Retry
             </button>
