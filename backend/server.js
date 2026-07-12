@@ -818,7 +818,7 @@ app.post('/api/orders', requireAuth, async (req, res) => {
           shippingMethod,
           estimatedDelivery,
           paymentMethod,
-          status: 'PENDING',
+          status: paymentMethod === 'COD' ? 'CONFIRMED' : 'PENDING',
           notes,
           orderItems: {
             create: items.map(item => ({
@@ -860,7 +860,7 @@ app.post('/api/orders', requireAuth, async (req, res) => {
           orderId: newOrder.id,
           provider: paymentMethod,
           amount: total,
-          status: 'PENDING'
+          status: paymentMethod === 'COD' ? 'SUCCESS' : 'PENDING'
         }
       });
 
@@ -963,7 +963,6 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       });
       
       console.log(`Order placed successfully with Razorpay: ${updatedOrder.id}`);
-      triggerOrderAlerts(updatedOrder.id, dbUser.name || 'Collector', items);
       return res.status(201).json({
         ...formatOrder(updatedOrder),
         razorpayKeyId: process.env.RAZORPAY_KEY_ID ? process.env.RAZORPAY_KEY_ID.replace(/^["']|["']$/g, '').trim() : undefined
@@ -1914,16 +1913,19 @@ app.patch('/api/user/profile', requireAuth, async (req, res) => {
 // GET admin dashboard summary statistics
 app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (req, res) => {
   try {
+    const activeStatuses = ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'];
     const revenueRes = await prisma.order.aggregate({
-      where: { status: 'DELIVERED' },
+      where: { status: { in: activeStatuses } },
       _sum: { total: true }
     });
     const totalRevenue = revenueRes._sum.total ? parseFloat(revenueRes._sum.total) : 0;
 
-    const totalOrders = await prisma.order.count();
+    const totalOrders = await prisma.order.count({
+      where: { status: { in: activeStatuses } }
+    });
     const totalUsers = await prisma.user.count();
     const pendingOrders = await prisma.order.count({
-      where: { status: 'PENDING' }
+      where: { status: { in: ['CONFIRMED', 'PROCESSING'] } }
     });
 
     const allBottles = await prisma.bottleInventory.findMany({
@@ -3296,5 +3298,42 @@ app.listen(PORT, '0.0.0.0', async () => {
     secretLength: process.env.RAZORPAY_KEY_SECRET?.length
   });
   console.log('====================================\n');
+
+  // Automatically expire pending orders older than 30 minutes
+  async function cleanupExpiredOrders() {
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    try {
+      const expiredOrders = await prisma.order.findMany({
+        where: {
+          status: 'PENDING',
+          createdAt: { lt: thirtyMinutesAgo }
+        }
+      });
+
+      if (expiredOrders.length > 0) {
+        console.log(`[Order Cleanup] Found ${expiredOrders.length} expired pending orders. Transitioning to CANCELLED...`);
+        for (const order of expiredOrders) {
+          await prisma.$transaction(async (tx) => {
+            await tx.order.update({
+              where: { id: order.id },
+              data: { status: 'CANCELLED' }
+            });
+            await tx.payment.update({
+              where: { orderId: order.id },
+              data: { status: 'FAILED' }
+            });
+          });
+          console.log(`[Order Cleanup] Order ${order.id} expired and cancelled.`);
+        }
+      }
+    } catch (err) {
+      console.error('[Order Cleanup] Failed to run expired orders cleanup:', err);
+    }
+  }
+
+  // Start cleanup job every 10 minutes
+  setInterval(cleanupExpiredOrders, 10 * 60 * 1000);
+  // Run once immediately on startup
+  cleanupExpiredOrders().catch(err => console.error('[Order Cleanup] Startup execution failed:', err));
 });
 

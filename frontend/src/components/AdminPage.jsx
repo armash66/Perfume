@@ -96,7 +96,7 @@ export default function AdminPage() {
   const [logSort, setLogSort] = useState({ field: 'date', direction: 'desc' });
 
   const [orderSearch, setOrderSearch] = useState('');
-  const [orderFilter, setOrderFilter] = useState('ALL');
+  const [orderFilter, setOrderFilter] = useState('ACTIVE');
   const [orderSort, setOrderSort] = useState({ field: 'createdAt', direction: 'desc' });
 
   const [paymentSearch, setPaymentSearch] = useState('');
@@ -1004,7 +1004,14 @@ export default function AdminPage() {
       const clientName = o.user?.name || 'Collector';
       const clientPhone = o.user?.phone || '';
       const matchesSearch = o.id?.toLowerCase().includes(orderSearch.toLowerCase()) || clientName.toLowerCase().includes(orderSearch.toLowerCase()) || o.user?.email?.toLowerCase().includes(orderSearch.toLowerCase()) || clientPhone.toLowerCase().includes(orderSearch.toLowerCase());
-      const matchesStatus = orderFilter === 'ALL' || o.status === orderFilter;
+      let matchesStatus = false;
+      if (orderFilter === 'ACTIVE') {
+        matchesStatus = ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(o.status);
+      } else if (orderFilter === 'ALL') {
+        matchesStatus = true;
+      } else {
+        matchesStatus = o.status === orderFilter;
+      }
       return matchesSearch && matchesStatus;
     });
     
@@ -2458,6 +2465,7 @@ export default function AdminPage() {
                 value={orderFilter}
                 onChange={(e) => setOrderFilter(e.target.value)}
               >
+                <option value="ACTIVE">Active (Default)</option>
                 <option value="ALL">All Statuses</option>
                 <option value="PENDING">Pending</option>
                 <option value="CONFIRMED">Confirmed</option>
