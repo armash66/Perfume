@@ -482,7 +482,8 @@ export default function CartPage({ onBackToShop, products = [] }) {
               <button
                 type="submit"
                 disabled={isValidatingCoupon || !couponCode.trim()}
-                className="px-4 py-2 bg-[#1c1b18] hover:bg-black text-[#fefcf9] text-[0.65rem] font-bold tracking-widest uppercase transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-[#1c1b18] hover:bg-black text-[#fefcf9] text-[0.65rem] font-bold tracking-widest uppercase transition-colors disabled:opacity-50 flex-shrink-0"
+                style={{ color: '#FEFCF9' }}
               >
                 {isValidatingCoupon ? 'Checking...' : 'Apply'}
               </button>
@@ -503,7 +504,8 @@ export default function CartPage({ onBackToShop, products = [] }) {
               <button
                 type="button"
                 onClick={handleRemoveCoupon}
-                className="text-[0.62rem] font-bold tracking-widest text-[#B08A50] hover:text-[#1c1b18] uppercase transition-colors"
+                className="text-[0.62rem] font-bold tracking-widest text-[#B08A50] hover:text-[#1c1b18] uppercase transition-colors flex-shrink-0"
+                style={{ color: '#B08A50' }}
               >
                 Remove
               </button>

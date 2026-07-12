@@ -857,6 +857,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
                     type="submit"
                     disabled={isSubmittingReview}
                     className="w-full py-2.5 bg-[#1C1B18] text-white text-[0.62rem] font-bold tracking-widest uppercase hover:bg-[#8B672F] transition-colors disabled:opacity-50"
+                    style={{ color: '#FEFCF9' }}
                   >
                     {isSubmittingReview ? 'Submitting...' : 'Submit Feedback'}
                   </button>
