@@ -3,7 +3,7 @@ import './ScrollingMarquee.css';
 
 export default function ScrollingMarquee() {
   const items = [
-    "STANDARD ATELIER DELIVERY AT ₹149",
+    "STANDARD ATELIER DELIVERY AT ₹100",
     "100% ORIGINAL AUTHENTIC FRAGRANCES",
     "LUXURY NICHE & DESIGNER DECANTS",
     "SECURE CHECKOUT & FAST DISPATCH",

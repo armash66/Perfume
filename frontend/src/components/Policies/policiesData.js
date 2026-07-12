@@ -88,7 +88,7 @@ const policiesData = [
       {
         heading: 'Standard Delivery Rate',
         content:
-          'Standard Atelier Delivery is available pan-India at a flat rate of ₹149.',
+          'Standard Atelier Delivery is available pan-India at a flat rate of ₹100.',
       },
       {
         heading: 'Packaging Standards',

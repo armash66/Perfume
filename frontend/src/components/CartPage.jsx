@@ -98,7 +98,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
   const [storeSettings, setStoreSettings] = useState(null);
 
   const FREE_SHIPPING_THRESHOLD = storeSettings ? parseFloat(storeSettings.freeShippingThreshold) : 1999;
-  const SHIPPING_CHARGES = storeSettings ? parseFloat(storeSettings.shippingCharges) : 199;
+  const SHIPPING_CHARGES = storeSettings ? parseFloat(storeSettings.shippingCharges) : 100;
 
   // Sync cart items on load and list for updates via CartStore subscription
   useEffect(() => {
@@ -304,8 +304,8 @@ export default function CartPage({ onBackToShop, products = [] }) {
     if (subtotal === 0) return 0;
     if (deliveryMethod === 'EXPRESS') return 399;
     if (deliveryMethod === 'OWNER') return 5000;
-    // STANDARD: standard charge is 149
-    const charge = storeSettings ? parseFloat(storeSettings.shippingCharges) : 149;
+    // STANDARD: standard charge is SHIPPING_CHARGES
+    const charge = SHIPPING_CHARGES;
     return charge;
   }, [subtotal, deliveryMethod, storeSettings]);
 
@@ -483,7 +483,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
   const pollOrderStatus = async (orderId, paymentId, orderRef) => {
     setCheckoutState('VERIFYING_PAYMENT');
     let attempts = 0;
-    const maxAttempts = 5;
+    const maxAttempts = 15;
     const pollInterval = 2000; // 2 seconds
 
     const runPoll = async () => {
@@ -1412,7 +1412,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-xs font-bold">Standard Atelier Delivery</span>
                           <span className="text-xs font-bold text-[#8B672F]">
-                            ₹{storeSettings ? parseFloat(storeSettings.shippingCharges) : 149}
+                            ₹{SHIPPING_CHARGES}
                           </span>
                         </div>
                         <p className="text-[0.68rem] text-black/60 leading-relaxed font-body">

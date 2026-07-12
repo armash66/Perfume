@@ -91,15 +91,15 @@ export default function LaunchWelcomePopup() {
           {isPreLaunch ? (
             <>
               Welcome to Decant Atelier. Our Launch Collection officially opens on
-              <strong className="launch-popup-highlight"> Sunday at 2:00 PM IST</strong>.
+              <strong className="launch-popup-highlight"> Sunday at 2:30 PM IST</strong>.
               <br />
-              For the first 36 hours after launch, exclusive introductory pricing will be available.
+              For the first 72 hours after launch, exclusive introductory pricing will be available.
             </>
           ) : (
             <>
               Our Launch Collection is now live.
               <br /><br />
-              To celebrate our launch, enjoy exclusive introductory pricing for the next 36 hours. Discover our curated collection while the launch event is live.
+              To celebrate our launch, enjoy exclusive introductory pricing for the next 72 hours. Discover our curated collection while the launch event is live.
             </>
           )}
         </p>

@@ -214,7 +214,11 @@ app.post('/api/webhooks/clerk', express.raw({ type: 'application/json' }), async
 });
 
 // For all other routes, parse JSON body
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 // Set up Clerk Node SDK auth middleware
 if (process.env.CLERK_SECRET_KEY) {
@@ -756,7 +760,7 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       where: { id: 'default' }
     });
     const threshold = storeSettings ? parseFloat(storeSettings.freeShippingThreshold) : 1999;
-    const standardCharge = storeSettings ? parseFloat(storeSettings.shippingCharges) : 199;
+    const standardCharge = storeSettings ? parseFloat(storeSettings.shippingCharges) : 100;
 
     // Compute shipping server-side — NEVER trust client-sent fee
     const shippingFee = computeShippingFee(shippingMethod, subtotal, threshold, standardCharge);
@@ -1019,6 +1023,71 @@ app.get('/api/orders/track/:reference', async (req, res) => {
 // PAYMENT INTEGRATION ROUTES
 // ============================================================
 
+// Shared transactional helper to confirm order, deduct stock, update payment, and clear cart
+async function confirmAndProcessOrder(orderId, transactionId) {
+  return await prisma.$transaction(async (tx) => {
+    // 1. Acquire row-level write lock on the order row to prevent concurrency races
+    await tx.$executeRaw`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`;
+
+    // 2. Fetch order including items, payment, and user details
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      include: { payment: true, orderItems: true, user: true }
+    });
+
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    // 3. Idempotency check: if order is already confirmed or payment is success, return early
+    if (order.status === 'CONFIRMED' || order.payment?.status === 'SUCCESS') {
+      return { order, alreadyConfirmed: true };
+    }
+
+    // 4. Stock validation and deduction
+    for (const item of order.orderItems) {
+      const variant = await tx.productVariant.findUnique({
+        where: { id: item.variantId }
+      });
+      if (variant) {
+        await deductFromBottle(
+          tx,
+          variant.productId,
+          variant.volumeML,
+          item.quantity,
+          orderId
+        );
+      }
+    }
+
+    // 5. Update order status to CONFIRMED
+    const updatedOrder = await tx.order.update({
+      where: { id: orderId },
+      data: { status: 'CONFIRMED' },
+      include: { orderItems: true, user: true }
+    });
+
+    // 6. Update payment status to SUCCESS
+    await tx.payment.update({
+      where: { orderId: orderId },
+      data: {
+        status: 'SUCCESS',
+        transactionId: transactionId,
+        paidAt: new Date()
+      }
+    });
+
+    // 7. Clear user cart
+    await tx.cartItem.deleteMany({
+      where: { userId: order.userId }
+    });
+
+    return { order: updatedOrder, alreadyConfirmed: false };
+  }, {
+    timeout: 20000 // 20 seconds timeout to prevent transaction starvation
+  });
+}
+
 // POST verify Razorpay signature and update payment status
 app.post('/api/payments/verify', requireAuth, async (req, res) => {
   const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId } = req.body;
@@ -1035,21 +1104,18 @@ app.post('/api/payments/verify', requireAuth, async (req, res) => {
   try {
     const dbUser = await getOrCreateDbUser(req.auth.userId);
 
-    // Fetch order from DB including payment and items
+    // Fetch order from DB including payment
     const order = await prisma.order.findFirst({
       where: { id: orderId, userId: dbUser.id },
-      include: { payment: true, orderItems: true }
+      include: { payment: true }
     });
 
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // Duplicate payment / verification protection
+    // Duplicate payment / verification protection (outside transaction for quick check)
     if (order.status === 'CONFIRMED' || order.payment?.status === 'SUCCESS') {
-      await prisma.cartItem.deleteMany({
-        where: { userId: dbUser.id }
-      });
       return res.status(200).json({ success: true, message: 'Payment already verified and order confirmed.' });
     }
 
@@ -1074,7 +1140,7 @@ app.post('/api/payments/verify', requireAuth, async (req, res) => {
       .digest('hex');
 
     if (generatedSignature !== razorpaySignature) {
-      // Signature mismatch — cancel order (no stock was deducted for Razorpay)
+      // Signature mismatch — cancel order
       await prisma.$transaction(async (tx) => {
         const txOrder = await tx.order.findUnique({
           where: { id: orderId },
@@ -1100,55 +1166,10 @@ app.post('/api/payments/verify', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Payment signature verification failed. Possible fraud.' });
     }
 
-    // Verification successful — deduct inventory and confirm order
+    // Verification successful — execute transactional confirmation
+    let result;
     try {
-      await prisma.$transaction(async (tx) => {
-        const txOrder = await tx.order.findUnique({
-          where: { id: orderId },
-          include: { payment: true, orderItems: true }
-        });
-
-        if (!txOrder || txOrder.status === 'CONFIRMED' || txOrder.payment?.status === 'SUCCESS') {
-          return;
-        }
-
-        // Deduct stock from BottleInventory now that payment is confirmed.
-        // deductFromBottle throws if insufficient stock (race condition guard).
-        for (const item of txOrder.orderItems) {
-          const variant = await tx.productVariant.findUnique({
-            where: { id: item.variantId }
-          });
-          if (variant) {
-            await deductFromBottle(
-              tx,
-              variant.productId,
-              variant.volumeML,
-              item.quantity,
-              orderId
-            );
-          }
-        }
-
-        await tx.order.update({
-          where: { id: orderId },
-          data: { status: 'CONFIRMED' }
-        });
-
-        await tx.payment.update({
-          where: { orderId: orderId },
-          data: {
-            status: 'SUCCESS',
-            transactionId: razorpayPaymentId,
-            paidAt: new Date()
-          }
-        });
-
-        await tx.cartItem.deleteMany({
-          where: { userId: dbUser.id }
-        });
-      }, {
-        timeout: 15000
-      });
+      result = await confirmAndProcessOrder(orderId, razorpayPaymentId);
     } catch (stockErr) {
       // Inventory was sold out between order creation and payment — cancel gracefully
       if (stockErr.message && stockErr.message.includes('Insufficient stock')) {
@@ -1168,7 +1189,14 @@ app.post('/api/payments/verify', requireAuth, async (req, res) => {
           message: 'The items in your order are no longer available. Your payment will be refunded. Please try again with available quantities.'
         });
       }
-      throw stockErr; // re-throw unexpected errors to be caught by outer catch
+      throw stockErr; // re-throw unexpected errors
+    }
+
+    // Trigger alerts/notifications OUTSIDE of the transaction to prevent database lock starvation
+    if (result && !result.alreadyConfirmed) {
+      triggerOrderAlerts(result.order.id, result.order.user?.name || 'Collector', result.order.orderItems).catch(err => {
+        console.error('Failed to trigger order alerts in background:', err);
+      });
     }
 
     return res.status(200).json({ success: true, message: 'Payment verified and order confirmed.' });
@@ -1237,7 +1265,7 @@ app.post('/api/payments/fail', requireAuth, async (req, res) => {
 });
 
 // POST Razorpay Webhooks (Optional/mocked, signature verified)
-app.post('/api/webhooks/razorpay', express.json(), async (req, res) => {
+app.post('/api/webhooks/razorpay', async (req, res) => {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
   const signature = req.headers['x-razorpay-signature'];
 
@@ -1251,8 +1279,9 @@ app.post('/api/webhooks/razorpay', express.json(), async (req, res) => {
   }
 
   try {
+    const rawBody = req.rawBody ? req.rawBody.toString() : JSON.stringify(req.body);
     const shasum = crypto.createHmac('sha256', secret);
-    shasum.update(JSON.stringify(req.body));
+    shasum.update(rawBody);
     const digest = shasum.digest('hex');
 
     if (digest !== signature) {
@@ -1263,81 +1292,50 @@ app.post('/api/webhooks/razorpay', express.json(), async (req, res) => {
     const event = req.body.event;
     console.log(`Razorpay webhook event received: ${event}`);
 
-    if (event === 'payment.captured' || event === 'order.paid') {
-      const payload = req.body.payload;
-      const paymentObj = payload.payment?.entity;
-      const rzpOrderId = paymentObj?.order_id;
-      const transactionId = paymentObj?.id;
+    // Ignore other webhook events gracefully
+    if (event !== 'payment.captured' && event !== 'order.paid') {
+      return res.status(200).json({ status: 'ignored', reason: 'unhandled_event' });
+    }
 
-      if (rzpOrderId) {
-        const order = await prisma.order.findFirst({
-          where: { razorpayOrderId: rzpOrderId },
-          include: { payment: true }
-        });
+    const payload = req.body.payload;
+    const paymentObj = payload.payment?.entity;
+    const rzpOrderId = paymentObj?.order_id;
+    const transactionId = paymentObj?.id;
 
-        if (order && order.status !== 'CONFIRMED') {
-          await prisma.$transaction(async (tx) => {
-            await tx.order.update({
-              where: { id: order.id },
-              data: { status: 'CONFIRMED' }
+    if (rzpOrderId) {
+      // Find Order and its linked Payment
+      const order = await prisma.order.findFirst({
+        where: { razorpayOrderId: rzpOrderId },
+        include: { payment: true }
+      });
+
+      if (order && order.payment) {
+        try {
+          const result = await confirmAndProcessOrder(order.id, transactionId || order.payment.transactionId);
+          if (result && !result.alreadyConfirmed) {
+            triggerOrderAlerts(result.order.id, result.order.user?.name || 'Collector', result.order.orderItems).catch(err => {
+              console.error('Failed to trigger order alerts in background:', err);
             });
-
-            await tx.payment.update({
-              where: { orderId: order.id },
-              data: {
-                status: 'SUCCESS',
-                transactionId: transactionId || order.payment?.transactionId,
-                paidAt: new Date()
-              }
-            });
-          }, {
-            timeout: 15000
-          });
-          console.log(`Order ${order.id} confirmed via webhook event ${event}.`);
-        }
-      }
-    } else if (event === 'payment.failed') {
-      const payload = req.body.payload;
-      const paymentObj = payload.payment?.entity;
-      const rzpOrderId = paymentObj?.order_id;
-
-      if (rzpOrderId) {
-        const order = await prisma.order.findFirst({
-          where: { razorpayOrderId: rzpOrderId },
-          include: { payment: true, orderItems: true }
-        });
-
-        if (order && order.status !== 'CANCELLED') {
-          await prisma.$transaction(async (tx) => {
-            await tx.order.update({
-              where: { id: order.id },
-              data: { status: 'CANCELLED' }
-            });
-
-            await tx.payment.update({
-              where: { orderId: order.id },
-              data: { status: 'FAILED' }
-            });
-
-            // Restore variant stock
-            for (const item of order.orderItems) {
-              const variant = await tx.productVariant.findUnique({
-                where: { id: item.variantId }
+            console.log(`Order ${order.id} confirmed via webhook event ${event}.`);
+          }
+        } catch (stockErr) {
+          if (stockErr.message && stockErr.message.includes('Insufficient stock')) {
+            console.error(`Insufficient stock during webhook confirmation for order ${order.id}:`, stockErr.message);
+            await prisma.$transaction(async (tx) => {
+              await tx.order.update({
+                where: { id: order.id },
+                data: { status: 'CANCELLED' }
               });
-              if (variant) {
-                await restoreToBottle(
-                  tx,
-                  variant.productId,
-                  variant.volumeML,
-                  item.quantity,
-                  order.id
-                );
-              }
-            }
-          }, {
-            timeout: 15000
-          });
-          console.log(`Order ${order.id} cancelled via webhook event payment.failed.`);
+              await tx.payment.update({
+                where: { orderId: order.id },
+                data: { status: 'FAILED' }
+              });
+            }, { timeout: 10000 });
+            console.log(`Order ${order.id} cancelled via webhook due to insufficient stock.`);
+          } else {
+            console.error(`Unexpected error during webhook order confirmation:`, stockErr);
+            return res.status(500).json({ error: 'Order confirmation failed' });
+          }
         }
       }
     }
@@ -3273,7 +3271,7 @@ app.listen(PORT, '0.0.0.0', async () => {
           supportEmail: 'concierge@decantatelier.com',
           supportPhone: '+91 97681 88453',
           codEnabled: true,
-          shippingCharges: 149,
+          shippingCharges: 100,
           freeShippingThreshold: 1999,
           razorpayKey: keyId,
           razorpaySecret: keySecret
