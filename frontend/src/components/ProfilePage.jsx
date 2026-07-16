@@ -723,21 +723,48 @@ export default function ProfilePage() {
                                   <div className="mt-6 pt-6 border-t border-black/5">
                                     <h5 className="text-[0.65rem] font-bold uppercase tracking-wider text-[#1C1B18] mb-3">Scent Selections</h5>
                                     <div className="space-y-3">
-                                      {order.orderItems?.map(item => (
-                                        <div key={item.id} className="flex justify-between items-center text-xs py-2 border-b border-black/5 last:border-0">
-                                          <div>
-                                            <p className="font-bold text-[#1C1B18]">{item.productName}</p>
-                                            <span className="text-[0.68rem] text-black/45 block mt-0.5">Size: {item.size} • Qty: {item.quantity}</span>
-                                            {item.bottleName && (
-                                              <span className="text-[0.65rem] text-[#8B672F] font-bold uppercase tracking-wider block mt-0.5">
-                                                <i className="fa-solid fa-spray-can-sparkles mr-1" aria-hidden="true" />
-                                                {item.bottleName}
-                                              </span>
-                                            )}
+                                      {order.orderItems?.map(item => {
+                                        const bottleName = item.bottleName;
+                                        const bottleColor = item.bottleColor;
+                                        const bottlePriceAdj = Number(item.bottlePriceAdjustment || 0);
+                                        const bottleText = bottleName 
+                                          ? `${bottleName}${bottleColor ? ` (${bottleColor})` : ''}` 
+                                          : null;
+
+                                        return (
+                                          <div key={item.id} className="flex justify-between items-start text-xs py-2.5 border-b border-black/5 last:border-0 gap-3">
+                                            <div className="flex gap-3 items-start">
+                                              {item.bottleImage && (
+                                                <img
+                                                  src={item.bottleImage}
+                                                  alt={item.bottleName || 'Bottle'}
+                                                  className="w-10 h-10 object-cover rounded border border-black/10 flex-shrink-0 mt-0.5"
+                                                />
+                                              )}
+                                              <div className="space-y-1">
+                                                <p className="font-bold text-[#1C1B18]">{item.productName}</p>
+                                                <p className="text-[0.7rem] text-black/60">Size: {item.size}</p>
+                                                {bottleText && (
+                                                  <div className="mt-0.5">
+                                                    <span className="text-[0.62rem] font-medium text-black/45 block">Bottle:</span>
+                                                    <span className="text-[0.7rem] text-[#8B672F] font-semibold block">{bottleText}</span>
+                                                    {bottlePriceAdj > 0 && (
+                                                      <span className="text-[0.65rem] text-[#8B672F] font-bold uppercase tracking-wider block mt-0.5">
+                                                        Upgrade +₹{bottlePriceAdj.toLocaleString('en-IN')}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                )}
+                                                <p className="text-[0.7rem] text-black/60">Qty: {item.quantity}</p>
+                                                {item.bottleSku && (
+                                                  <p className="text-[0.62rem] text-black/35 font-mono">SKU: {item.bottleSku}</p>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <span className="font-semibold text-[#1C1B18] whitespace-nowrap">₹{(Number(item.priceAtPurchase) * item.quantity).toLocaleString('en-IN')}</span>
                                           </div>
-                                          <span className="font-semibold text-[#1C1B18]">₹{Number(item.priceAtPurchase).toLocaleString('en-IN')}</span>
-                                        </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 </motion.div>

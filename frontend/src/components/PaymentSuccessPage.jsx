@@ -124,21 +124,48 @@ export default function PaymentSuccessPage() {
             <div className="px-8 py-6 border-b border-black/5">
               <span className="text-[0.58rem] font-bold tracking-[0.16em] text-black/35 uppercase block mb-4">Items Ordered</span>
               <div className="space-y-3">
-                {order.orderItems.map(item => (
-                  <div key={item.id} className="flex justify-between items-center">
-                    <div>
-                      <span className="text-xs font-semibold text-[#1C1B18] block">{item.productName}</span>
-                      <span className="text-[0.65rem] text-black/40 block">{item.size} · Qty {item.quantity}</span>
-                      {item.bottleName && (
-                        <span className="text-[0.62rem] text-[#8B672F] font-bold uppercase tracking-wider block mt-0.5">
-                          <i className="fa-solid fa-spray-can-sparkles mr-1" aria-hidden="true" />
-                          {item.bottleName}
-                        </span>
-                      )}
+                {order.orderItems.map(item => {
+                  const bottleName = item.bottleName;
+                  const bottleColor = item.bottleColor;
+                  const bottlePriceAdj = Number(item.bottlePriceAdjustment || 0);
+                  const bottleText = bottleName 
+                    ? `${bottleName}${bottleColor ? ` (${bottleColor})` : ''}` 
+                    : null;
+
+                  return (
+                    <div key={item.id} className="flex justify-between items-start py-3 border-b border-black/5 last:border-0 gap-3">
+                      <div className="flex gap-3 items-start">
+                        {item.bottleImage && (
+                          <img
+                            src={item.bottleImage}
+                            alt={item.bottleName || 'Bottle'}
+                            className="w-10 h-10 object-cover rounded border border-black/10 flex-shrink-0 mt-0.5"
+                          />
+                        )}
+                        <div className="space-y-1">
+                          <span className="text-xs font-semibold text-[#1C1B18] block">{item.productName}</span>
+                          <span className="text-[0.7rem] text-black/60 block">Size: {item.size}</span>
+                          {bottleText && (
+                            <div className="mt-1">
+                              <span className="text-[0.6rem] font-bold uppercase tracking-wider text-black/40 block">Bottle Selected</span>
+                              <span className="text-[0.7rem] text-[#8B672F] font-semibold block">{bottleText}</span>
+                              {bottlePriceAdj > 0 && (
+                                <span className="text-[0.65rem] text-[#8B672F] font-bold uppercase tracking-wider block mt-0.5">
+                                  Upgrade +₹{bottlePriceAdj.toLocaleString('en-IN')}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <span className="text-[0.68rem] text-black/50 block">Qty: {item.quantity}</span>
+                          {item.bottleSku && (
+                            <span className="text-[0.62rem] text-black/35 font-mono block">SKU: {item.bottleSku}</span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold whitespace-nowrap pt-0.5">₹{(Number(item.priceAtPurchase) * item.quantity).toLocaleString('en-IN')}</span>
                     </div>
-                    <span className="text-xs font-semibold">₹{(Number(item.priceAtPurchase) * item.quantity).toLocaleString('en-IN')}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

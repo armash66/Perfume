@@ -4096,20 +4096,53 @@ export default function AdminPage() {
             <div>
               <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', textTransform: 'uppercase', color: '#4b5563' }}>Purchased Items</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {selectedOrder.orderItems?.map(item => (
-                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.375rem' }}>
-                    <div>
-                      <strong>{item.productName}</strong><br />
-                      <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>Size: {item.size} | Qty: {item.quantity}</span>
-                      {item.bottleName && (
-                        <div style={{ fontSize: '0.7rem', color: '#8B672F', fontWeight: 'bold', marginTop: '2px' }}>
-                          Bottle: {item.bottleName}
+                {selectedOrder.orderItems?.map(item => {
+                  const bottleName = item.bottleName;
+                  const bottleColor = item.bottleColor;
+                  const bottlePriceAdj = Number(item.bottlePriceAdjustment || 0);
+                  const bottleText = bottleName 
+                    ? `${bottleName}${bottleColor ? ` (${bottleColor})` : ''}` 
+                    : null;
+
+                  return (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.8rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.5rem', paddingTop: '0.25rem', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                        {item.bottleImage && (
+                          <img 
+                            src={sanitizeImageUrl(item.bottleImage)} 
+                            alt={item.bottleName || 'Bottle'} 
+                            style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--admin-border)', flexShrink: 0, marginTop: '2px' }} 
+                          />
+                        )}
+                        <div>
+                          <strong style={{ display: 'block', color: 'var(--admin-text-primary)' }}>{item.productName}</strong>
+                          <div style={{ fontSize: '0.72rem', color: '#4b5563', marginTop: '2px', lineHeight: 1.4 }}>
+                            <div>Size: {item.size}</div>
+                            {bottleText && (
+                              <div style={{ fontWeight: 600, color: '#8B672F' }}>
+                                Bottle: {bottleText}
+                              </div>
+                            )}
+                            {bottlePriceAdj > 0 && (
+                              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#8B672F', textTransform: 'uppercase' }}>
+                                Bottle Upgrade: +₹{bottlePriceAdj.toLocaleString('en-IN')}
+                              </div>
+                            )}
+                            <div>Qty: {item.quantity}</div>
+                            {item.bottleSku && (
+                              <div style={{ fontSize: '0.65rem', color: '#9ca3af', fontFamily: 'monospace', marginTop: '1px' }}>
+                                SKU: {item.bottleSku}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
+                      </div>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--admin-text-primary)', whiteSpace: 'nowrap' }}>
+                        ₹{(parseFloat(item.priceAtPurchase) * item.quantity).toLocaleString('en-IN')}
+                      </span>
                     </div>
-                    <span style={{ fontFamily: 'monospace' }}>₹{(parseFloat(item.priceAtPurchase) * item.quantity).toLocaleString('en-IN')}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

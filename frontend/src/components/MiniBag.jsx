@@ -195,23 +195,24 @@ export default function MiniBag({ products = [], onCloseMiniBag }) {
               <h4 className="added-item-name">{addedItem.name}</h4>
               {(() => {
                 let size = addedItem.size || '';
-                let bottle = addedItem.bottleType || '';
-                let cleanSize = size
-                  .replace(/\s*\(Classic Metal Atomiser 10ML \((Black|Gold)\)\)/gi, '')
-                  .replace(/\s*\(Premium Metal Atomiser\)/gi, '')
-                  .replace(/\s*\(Travel-Safe\)/gi, '')
-                  .replace(/\s*\(Classic\)/gi, '')
-                  .replace(/\s*\(Gold\)/gi, '')
-                  .replace(/\s*\(Capsule\)/gi, '');
-                
-                if (!bottle && cleanSize.toLowerCase().includes('10ml')) {
-                  bottle = 'Classic Metal Atomiser 10ML (Black)';
-                }
+                let bottleName = addedItem.bottleName || addedItem.bottleType || '';
+                let bottleColor = addedItem.bottleColor || '';
+                let bottlePriceAdj = Number(addedItem.bottlePrice || addedItem.bottlePriceAdjustment || 0);
+                let bottleText = bottleName ? `${bottleName}${bottleColor ? ` (${bottleColor})` : ''}` : '';
                 
                 return (
                   <>
-                    <span className="added-item-variant">Size: {cleanSize}</span>
-                    {bottle && <span className="added-item-variant mt-0.5 block">Bottle: {bottle}</span>}
+                    <span className="added-item-variant">Size: {size}</span>
+                    {bottleText && (
+                      <span className="added-item-variant mt-0.5 block font-semibold text-[#8B672F]">
+                        Bottle: {bottleText}
+                      </span>
+                    )}
+                    {bottlePriceAdj > 0 && (
+                      <span className="added-item-variant text-[0.62rem] font-bold text-[#8B672F] uppercase block mt-0.5">
+                        Bottle Upgrade: +₹{bottlePriceAdj.toLocaleString('en-IN')}
+                      </span>
+                    )}
                   </>
                 );
               })()}

@@ -425,13 +425,28 @@ export default function CartPage({ onBackToShop, products = [] }) {
         <div className="space-y-4 text-xs font-body mb-6">
           {/* Summary Item list when checking out */}
           {isCheckingOut && (
-            <div className="checkout-summary-items-mini border-b border-black/5 pb-4 mb-4 space-y-3.5 max-h-[160px] overflow-y-auto scrollbar-hide">
-              {cartItems.map(item => (
-                <div key={`${item.id}-${item.size}`} className="flex justify-between items-center text-[0.72rem] text-black/70">
-                  <span className="truncate max-w-[180px]">{item.name} <strong className="font-semibold text-[#1C1B18]">x{item.quantity}</strong></span>
-                  <span>₹{(item.price * item.quantity).toLocaleString('en-IN')}</span>
-                </div>
-              ))}
+            <div className="checkout-summary-items-mini border-b border-black/5 pb-4 mb-4 space-y-3 max-h-[220px] overflow-y-auto scrollbar-hide">
+              {cartItems.map(item => {
+                const bottlePriceAdj = Number(item.bottlePrice || item.bottlePriceAdjustment || 0);
+                const bottleText = item.bottleName 
+                  ? `${item.bottleName}${item.bottleColor ? ` (${item.bottleColor})` : ''}` 
+                  : null;
+
+                return (
+                  <div key={`${item.id}-${item.size}`} className="flex justify-between items-start text-[0.72rem] text-black/70 gap-2 border-b border-black/5 pb-2 last:border-0">
+                    <div>
+                      <span className="font-semibold text-[#1C1B18] block">{item.name} <span className="text-[#8B672F]">x{item.quantity}</span></span>
+                      <span className="text-[0.65rem] text-black/50 block">Size: {item.size}</span>
+                      {bottleText && (
+                        <span className="text-[0.65rem] text-[#8B672F] font-medium block">
+                          Bottle: {bottleText} {bottlePriceAdj > 0 ? `(+₹${bottlePriceAdj})` : ''}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-semibold whitespace-nowrap">₹{(item.price * item.quantity).toLocaleString('en-IN')}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -1258,15 +1273,25 @@ export default function CartPage({ onBackToShop, products = [] }) {
                                <h3 className="font-heading text-lg font-normal text-[#1C1B18] text-center md:text-left">
                                  {item.name}
                                </h3>
-                               <span className="text-[0.72rem] text-black/50 block font-body text-center md:text-left">
-                                 Size: {item.size} {item.label && `(${item.label})`}
+                               <span className="text-[0.72rem] text-black/60 block font-body text-center md:text-left">
+                                  Size: {item.size} {item.label && `(${item.label})`}
                                </span>
                                {item.bottleName && (
-                                 <span className="text-[0.65rem] text-[#8B672F] font-bold uppercase tracking-wider block text-center md:text-left">
-                                   <i className="fa-solid fa-spray-can-sparkles mr-1" aria-hidden="true" />
-                                   {item.bottleName}
-                                   {item.bottlePrice > 0 && <span className="text-black/40 font-semibold ml-1">(+₹{item.bottlePrice})</span>}
-                                 </span>
+                                 <div className="pt-0.5 space-y-0.5 text-center md:text-left">
+                                   <span className="text-[0.68rem] text-[#8B672F] font-semibold block">
+                                     Bottle: {item.bottleName}{item.bottleColor ? ` (${item.bottleColor})` : ''}
+                                   </span>
+                                   {Number(item.bottlePrice || item.bottlePriceAdjustment || 0) > 0 ? (
+                                     <span className="text-[0.62rem] text-[#8B672F] font-bold uppercase tracking-wider block">
+                                       Bottle Upgrade: +₹{Number(item.bottlePrice || item.bottlePriceAdjustment).toLocaleString('en-IN')}
+                                     </span>
+                                   ) : null}
+                                   {item.bottleSku && (
+                                     <span className="text-[0.62rem] text-black/35 font-mono block">
+                                       SKU: {item.bottleSku}
+                                     </span>
+                                   )}
+                                 </div>
                                )}
                              </div>
  

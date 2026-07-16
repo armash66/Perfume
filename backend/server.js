@@ -429,7 +429,13 @@ function formatOrder(order) {
   if (order.orderItems) {
     formatted.orderItems = order.orderItems.map(item => ({
       ...item,
-      priceAtPurchase: parseFloat(item.priceAtPurchase)
+      priceAtPurchase: parseFloat(item.priceAtPurchase),
+      bottleId: item.bottleId || null,
+      bottleName: item.bottleName || null,
+      bottleColor: item.bottleColor || null,
+      bottleImage: item.bottleImage || null,
+      bottleSku: item.bottleSku || null,
+      bottlePriceAdjustment: item.bottlePriceAdjustment !== null && item.bottlePriceAdjustment !== undefined ? parseFloat(item.bottlePriceAdjustment) : 0
     }));
   }
   
@@ -652,6 +658,29 @@ app.get('/api/orders', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Failed to fetch orders:', err);
     return res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+// GET single user order by ID
+app.get('/api/orders/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const dbUser = await getOrCreateDbUser(req.auth.userId);
+    const order = await prisma.order.findFirst({
+      where: { id, userId: dbUser.id },
+      include: {
+        address: true,
+        orderItems: true,
+        payment: true
+      }
+    });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    return res.status(200).json(formatOrder(order));
+  } catch (err) {
+    console.error('Failed to fetch order:', err);
+    return res.status(500).json({ error: 'Failed to fetch order' });
   }
 });
 
