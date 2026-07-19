@@ -5,6 +5,7 @@ import { getCart, updateQuantity, removeFromCart, clearCart, mergeCartToDb } fro
 import { showToast } from '../utils/toast';
 import './CartPage.css';
 import { API_BASE_URL, sanitizeImageUrl } from '../utils/config.js';
+import { renderFormattedCouponCode } from '../utils/formatCouponCode';
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -457,7 +458,7 @@ export default function CartPage({ onBackToShop, products = [] }) {
 
           {appliedCoupon && (
             <div className="flex justify-between items-center text-[#8B672F]">
-              <span>LAUNCH INVITATION ({appliedCoupon.code})</span>
+              <span>LAUNCH INVITATION ({renderFormattedCouponCode(appliedCoupon.code)})</span>
               <span className="font-semibold">-₹{appliedCoupon.discount.toLocaleString('en-IN')}</span>
             </div>
           )}
@@ -509,8 +510,8 @@ export default function CartPage({ onBackToShop, products = [] }) {
                 <div className="text-[0.68rem] font-bold text-[#8B672F] flex items-center gap-1.5 uppercase tracking-wider mb-0.5">
                   <span className="text-xs">✓</span> Launch Invitation Applied
                 </div>
-                <div className="font-heading text-base font-light text-[#1c1b18] tracking-wider mb-0.5">
-                  {appliedCoupon.code}
+                <div className="text-base text-[#1c1b18] mb-0.5">
+                  {renderFormattedCouponCode(appliedCoupon.code)}
                 </div>
                 <div className="text-[0.65rem] text-black/55 font-body">
                   ₹{appliedCoupon.discount} credited to your order

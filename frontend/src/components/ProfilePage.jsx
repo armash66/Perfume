@@ -8,6 +8,7 @@ import { addToCart, clearCart } from '../utils/cartHelper';
 import { CartStore } from '../utils/store.js';
 import './ProfilePage.css';
 import { API_BASE_URL } from '../utils/config.js';
+import { renderFormattedCouponCode } from '../utils/formatCouponCode';
 
 const statusStyles = {
   PENDING: 'status-pending',
@@ -711,7 +712,7 @@ export default function ProfilePage() {
                                         <p>Subtotal: ₹{Number(order.subtotal).toLocaleString('en-IN')}</p>
                                         {order.couponCode && (
                                           <p className="text-[#8B672F] font-semibold">
-                                            Coupon: {order.couponCode} (-₹{Number(order.discountAmount || 0).toLocaleString('en-IN')})
+                                            Coupon: {renderFormattedCouponCode(order.couponCode)} (-₹{Number(order.discountAmount || 0).toLocaleString('en-IN')})
                                           </p>
                                         )}
                                         <p>Shipping: {Number(order.shippingFee) > 0 ? `₹${Number(order.shippingFee).toLocaleString('en-IN')}` : 'Free Delivery'}</p>

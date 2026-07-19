@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
-import { API_BASE_URL } from '../utils/config.js';
+import { API_BASE_URL, sanitizeImageUrl } from '../utils/config.js';
+import { renderFormattedCouponCode } from '../utils/formatCouponCode';
 import { clearCart } from '../utils/cartHelper.js';
 
 export default function PaymentSuccessPage() {
@@ -195,7 +196,7 @@ export default function PaymentSuccessPage() {
                   <div className="flex justify-between items-start text-xs text-[#8B672F] py-1">
                     <div className="text-left">
                       <span className="font-bold block uppercase tracking-wider" style={{ fontSize: '0.62rem', letterSpacing: '0.05em' }}>Launch Invitation Applied</span>
-                      <span className="font-heading font-light block" style={{ fontSize: '0.72rem' }}>{order.couponCode}</span>
+                      <span className="block" style={{ fontSize: '0.72rem' }}>{renderFormattedCouponCode(order.couponCode)}</span>
                     </div>
                     <span className="font-semibold text-right">You saved ₹{Number(order.discountAmount || 0).toLocaleString('en-IN')} on this order.</span>
                   </div>
