@@ -1287,7 +1287,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
                 const sizeLabel = selectedOption?.size?.replace(' Decant', '').replace(' Retail Bottle', '').toUpperCase() || '';
                 const bottleFinish = selectedBottleObj ? selectedBottleObj.finish : '';
                 const basePrice = selectedOption ? selectedOption.price : 0;
-                const adjustment = bottlePriceAdjustment;
+                const adjustment = bottleAdditionalPrice;
                 const unitPrice = basePrice + adjustment;
                 const totalPrice = unitPrice * selectedQty;
 
@@ -1392,7 +1392,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
                       {selectedOption.size?.replace(' Decant', '').toUpperCase()} {selectedBottleObj?.finish ? `• ${selectedBottleObj.finish}` : ''}
                     </span>
                     <span className="pdp-sticky-bar__price">
-                      ₹{((selectedOption.price + bottlePriceAdjustment) * selectedQty).toLocaleString('en-IN')}
+                      ₹{((selectedOption.price + bottleAdditionalPrice) * selectedQty).toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
