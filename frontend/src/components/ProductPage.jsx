@@ -326,7 +326,7 @@ export default function ProductPage({ product: initialProduct, products = [], on
     return product.sizes[selectedSizeIndex] || product.sizes[0];
   }, [product, selectedSizeIndex]);
 
-  // Fetch dynamic bottle catalog options whenever selected size or product changes
+  // Fetch dynamic bottle catalog options whenever selected size or product changes (only for 5ml and 10ml)
   useEffect(() => {
     let isMounted = true;
     async function loadBottles() {
@@ -334,6 +334,13 @@ export default function ProductPage({ product: initialProduct, products = [], on
         if (isMounted) { setAvailableBottles([]); setSelectedBottle(null); }
         return;
       }
+      const sz = (selectedOption.size || '').toLowerCase();
+      const isCustomPackagingSize = sz.includes('5ml') || sz.includes('10ml');
+      if (!isCustomPackagingSize) {
+        if (isMounted) { setAvailableBottles([]); setSelectedBottle(null); }
+        return;
+      }
+
       const bottles = await getBottleCatalog(product?.id, selectedOption.size);
       if (isMounted) {
         setAvailableBottles(bottles);
@@ -1218,9 +1225,9 @@ export default function ProductPage({ product: initialProduct, products = [], on
                               </div>
                             )}
                           </div>
-                          <span className="pdp-bottle-card__name">{bottle.name}</span>
+                          <span className="pdp-bottle-card__name">{(bottle.name || '').replace(/Atomizer|Spray|\([^)]*\)/gi, '').trim() || bottle.name}</span>
                           <span className="pdp-bottle-card__finish">{bottle.finish}</span>
-                          <span className="pdp-bottle-card__price">
+                          <span className="pdp-bottle-pill-badge">
                             {bottle.badge ? bottle.badge : bottle.priceAdjustment === 0 ? 'Included' : `+₹${bottle.priceAdjustment}`}
                           </span>
                         </button>
